@@ -1,0 +1,143 @@
+services:
+  mongo:
+    image: mongo:latest
+    container_name: mongo_db
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-StrongRootPass123}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-appdb}
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+    healthcheck:
+      test: >
+        echo 'db.runCommand("ping").ok' |
+        mongosh localhost:27017/admin --quiet
+        --username ${MONGO_USER:-root}
+        --password ${MONGO_PASSWORD:-StrongRootPass123}
+        --authenticationDatabase admin
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333' 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  embeddings:
+    image: ollama/ollama:latest
+    container_name: ollama_service
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+
+  ollama_init:
+    image: curlimages/curl:8.12.1
+    container_name: ollama_init
+    depends_on:
+      embeddings:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no"
+    command: >
+      sh -c "curl -fsS http://embeddings:11434/api/pull
+      -H 'Content-Type: application/json'
+      -d '{\"model\":\"qwen3-embedding:0.6b\",\"stream\":false}'"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mrg_backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      MONGO_URI: mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:-StrongRootPass123}@mongo:27017/?authSource=admin
+      MONGO_DB_NAME: ${MONGO_DB:-appdb}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6334"
+      LOCAL_EMBEDDING_URL: http://embeddings:11434
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_SESSION_TIMEOUT: ${JWT_SESSION_TIMEOUT:-15m}
+      SUPER_ADMIN_ENABLED: ${SUPER_ADMIN_ENABLED:-true}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD}
+      SUPER_ADMIN_NAME: ${SUPER_ADMIN_NAME:-Super Admin}
+      SUPER_ADMIN_TENANT_ID: ${SUPER_ADMIN_TENANT_ID:-root}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME}
+      LOCAL_EMBEDDING_MODEL: ${LOCAL_EMBEDDING_MODEL:-qwen3-embedding:0.6b}
+      LOGGER_LEVEL: ${LOGGER_LEVEL:-info}
+      LOGGER_ENCODING: ${LOGGER_ENCODING:-json}
+      LOGGER_OUTPUT_PATHS: ${LOGGER_OUTPUT_PATHS:-stdout}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      ollama_init:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    container_name: mrg_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NUXT_API_BASE_INTERNAL: http://mrg_backend:8080
+      NUXT_COOKIE_SECURE: ${NUXT_COOKIE_SECURE:-true}
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+volumes:
+  mongodb_data:
+  qdrant_data:
+  ollama_data:
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,54 @@
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: ai_search_traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - edge-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mrg_frontend
+    restart: unless-stopped
+    environment:
+      NUXT_API_BASE_INTERNAL: http://mrg_backend:8080
+      NUXT_COOKIE_SECURE: ${NUXT_COOKIE_SECURE:-true}
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=ai-search-edge-network
+      - traefik.http.routers.ai-frontend.rule=Host(`ai.bugbusters.cc`) && PathPrefix(`/`)
+      - traefik.http.routers.ai-frontend.priority=1
+      - traefik.http.routers.ai-frontend.entrypoints=websecure
+      - traefik.http.routers.ai-frontend.tls=true
+      - traefik.http.routers.ai-frontend.tls.certresolver=letsencrypt
+      - traefik.http.services.ai-frontend.loadbalancer.server.port=3000
+    networks:
+      - app-network
+      - edge-network
+
+volumes:
+  traefik_letsencrypt:
+
+networks:
+  app-network:
+    external: true
+    name: ai-search-app-network
+  edge-network:
+    name: ai-search-edge-network
+    driver: bridge

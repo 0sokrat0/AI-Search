@@ -79,6 +79,28 @@ var knownApps = []appCredentials{
 			SystemLangCode: "ru-RU",
 		},
 	},
+	{
+		AppID:   21950768,
+		AppHash: "c5d0095e54a3e4f9cdf669b390b39090",
+		Device: telegram.DeviceConfig{
+			DeviceModel:    "OnePlus 12",
+			SystemVersion:  "SDK 35",
+			AppVersion:     "11.7.3 (5277)",
+			LangCode:       "ru",
+			SystemLangCode: "ru-RU",
+		},
+	},
+	{
+		AppID:   26793495,
+		AppHash: "e76ed299ee59c840de5aae8c02868efa",
+		Device: telegram.DeviceConfig{
+			DeviceModel:    "Google Pixel 9 Pro",
+			SystemVersion:  "SDK 35",
+			AppVersion:     "11.7.3 (5277)",
+			LangCode:       "ru",
+			SystemLangCode: "ru-RU",
+		},
+	},
 }
 
 func pickRandomApp() appCredentials {

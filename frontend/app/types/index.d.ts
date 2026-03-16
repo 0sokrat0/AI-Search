@@ -110,6 +110,7 @@ export interface Signal {
   isLead?: boolean
   semanticDirection?: string
   semanticCategory?: 'leads' | 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
+  categoryAssignedAt?: string
 }
 
 export interface LeadBrief {

@@ -34,7 +34,7 @@ const senderWindow = ref(60)
 const traderThreshold = ref(0.60)
 const merchantThreshold = ref(0.60)
 const psOfferThreshold = ref(0.60)
-const ignoreKeywords = ref('')
+const ignoreKeywords = ref<string[]>([])
 watch(settings, (next) => {
   if (!next) return
   leadThreshold.value = sliderToNumber(next.lead_threshold, 0.70)
@@ -42,7 +42,10 @@ watch(settings, (next) => {
   traderThreshold.value = sliderToNumber(next.trader_threshold, 0.60)
   merchantThreshold.value = sliderToNumber(next.merchant_threshold, 0.60)
   psOfferThreshold.value = sliderToNumber(next.ps_offer_threshold, 0.60)
-  ignoreKeywords.value = next.ignore_keywords || ''
+  ignoreKeywords.value = (next.ignore_keywords || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
 }, { immediate: true })
 
 const saving = ref(false)
@@ -59,7 +62,7 @@ async function save() {
     trader_threshold: clamp(sliderToNumber(traderThreshold.value, 0.60), 0.3, 0.99),
     merchant_threshold: clamp(sliderToNumber(merchantThreshold.value, 0.60), 0.3, 0.99),
     ps_offer_threshold: clamp(sliderToNumber(psOfferThreshold.value, 0.60), 0.3, 0.99),
-    ignore_keywords: ignoreKeywords.value
+    ignore_keywords: ignoreKeywords.value.join(', ')
   }
 
   saving.value = true
@@ -237,12 +240,12 @@ async function save() {
             </p>
           </div>
           <div class="flex-1 w-full max-w-lg">
-            <UTextarea
+            <UInputTags
               v-model="ignoreKeywords"
-              placeholder="слово1, слово2, фраза 3..."
-              autoresize
-              :rows="2"
-              class="w-full font-mono text-sm"
+              placeholder="Добавить слово..."
+              :add-on-paste="true"
+              :delimiter="/[,;]/g"
+              class="w-full"
             />
           </div>
         </div>

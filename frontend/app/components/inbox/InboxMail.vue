@@ -245,14 +245,11 @@ const showTechnicalDirection = computed(() => {
 const telegramHref = computed(() => {
   const username = String(props.mail.telegramUsername || '').trim()
   if (username.startsWith('@')) {
-    return `tg://resolve?domain=${username.slice(1)}`
+    return `https://t.me/${username.slice(1)}`
   }
-
-  const senderID = Number(props.mail.senderTelegramId || 0)
-  if (senderID > 0) {
-    return `tg://openmessage?user_id=${senderID}`
+  if (username) {
+    return `https://t.me/${username}`
   }
-
   return ''
 })
 

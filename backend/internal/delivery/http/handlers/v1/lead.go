@@ -48,6 +48,10 @@ type updateStatusRequest struct {
 	Status string `json:"status"`
 }
 
+type updateCategoryRequest struct {
+	Category string `json:"category"`
+}
+
 type setMerchantRequest struct {
 	MerchantID string `json:"merchant_id"`
 }
@@ -174,6 +178,16 @@ func (h *LeadHandler) UpdateStatus(c *fiber.Ctx) error {
 	if err == lead.ErrInvalidStatus || err == lead.ErrInvalidStatusTransition {
 		return response.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_STATUS", err.Error())
 	}
+	return h.respondLead(c, l, err)
+}
+
+func (h *LeadHandler) UpdateCategory(c *fiber.Ctx) error {
+	var req updateCategoryRequest
+	if err := c.BodyParser(&req); err != nil {
+		return response.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_REQUEST", "cannot parse body")
+	}
+	tenantID := tenantFromCtx(c)
+	l, err := h.uc.UpdateCategory(c.Context(), tenantID, c.Params("id"), strings.TrimSpace(req.Category))
 	return h.respondLead(c, l, err)
 }
 

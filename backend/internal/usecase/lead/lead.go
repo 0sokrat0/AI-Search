@@ -327,6 +327,21 @@ func containsAnyFold(s string, parts ...string) bool {
 	return false
 }
 
+func (uc *UseCase) UpdateCategory(ctx context.Context, tenantID, id, category string) (*lead.Lead, error) {
+	l, err := uc.leads.FindByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	if l == nil {
+		return nil, lead.ErrLeadNotFound
+	}
+	l.SetSemanticCategory(category)
+	if err := uc.leads.Update(ctx, l); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
 func (uc *UseCase) GetStats(ctx context.Context, tenantID string, days int) (*lead.Stats, error) {
 	return uc.leads.GetStats(ctx, tenantID, days)
 }

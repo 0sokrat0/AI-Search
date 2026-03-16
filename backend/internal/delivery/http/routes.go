@@ -61,6 +61,7 @@ func SetupRoutes(
 	leads.Post("/:id/approve", leadHandler.Approve)
 	leads.Post("/:id/reject", leadHandler.Reject)
 	leads.Put("/:id/merchant", leadHandler.SetMerchant)
+	leads.Patch("/:id/category", leadHandler.UpdateCategory)
 
 	if signalHandler != nil {
 		signals := g.Group("/signals", middleware.AuthRequired(cfg), middleware.PermissionRequired(user.PermissionViewLeads, userRepo))

@@ -6,6 +6,11 @@ import { formatDistanceToNow, isValid } from 'date-fns'
 import type { Row } from '@tanstack/table-core'
 import type { Lead, LeadStatus } from '~/types'
 
+interface GroupedLead extends Lead {
+  chatTitles: string[]
+  allIds: string[]
+}
+
 definePageMeta({
   middleware: 'auth'
 })
@@ -24,7 +29,12 @@ const route = useRoute()
 const isDetailRoute = computed(() => Boolean(route.params.id))
 
 const columnFilters = ref([{ id: 'contact', value: '' }])
-const columnVisibility = ref()
+const columnVisibility = ref<Record<string, boolean>>({
+  nextAction: false,
+  status: false,
+  signalsCount: false,
+  geo: false
+})
 const rowSelection = ref({})
 const statusFilter = ref('all')
 const categoryFilter = ref<'all' | 'leads' | 'traders' | 'merchants' | 'ps_offers' | 'noise'>('all')
@@ -49,6 +59,44 @@ const scopedLeads = computed(() => {
   return leadScope.value === 'archive'
     ? data.value.filter(l => l.status === 'converted' || l.status === 'rejected')
     : data.value.filter(l => l.status === 'new' || l.status === 'contacted' || l.status === 'qualified')
+})
+
+const groupedScopedLeads = computed<GroupedLead[]>(() => {
+  const groups = new Map<string, GroupedLead>()
+
+  for (const lead of scopedLeads.value) {
+    const rawContact = (lead.contact || '').trim()
+    // Группируем только если есть осмысленный контакт
+    const key = rawContact && rawContact !== '—'
+      ? rawContact.toLowerCase()
+      : `__solo__${lead.id}`
+
+    if (groups.has(key)) {
+      const g = groups.get(key)!
+      g.signalsCount += (lead.signalsCount ?? 1)
+      if (lead.chatTitle && !g.chatTitles.includes(lead.chatTitle)) {
+        g.chatTitles.push(lead.chatTitle)
+      }
+      g.allIds.push(lead.id)
+      if (new Date(lead.lastSeenAt) > new Date(g.lastSeenAt)) {
+        g.lastSeenAt = lead.lastSeenAt
+      }
+      // Берём назначение компании если у основной записи его нет
+      if (!g.merchantId && lead.merchantId) {
+        g.merchantId = lead.merchantId
+        g.company = lead.company
+        g.companyId = lead.companyId
+      }
+    } else {
+      groups.set(key, {
+        ...lead,
+        chatTitles: lead.chatTitle ? [lead.chatTitle] : [],
+        allIds: [lead.id]
+      })
+    }
+  }
+
+  return Array.from(groups.values())
 })
 
 function formatLastSeen(value?: string) {
@@ -140,7 +188,7 @@ async function deleteLead(id: string, name?: string) {
   }
 }
 
-function getRowItems(row: Row<Lead>) {
+function getRowItems(row: Row<GroupedLead>) {
   return [
     {
       type: 'label',
@@ -185,7 +233,7 @@ function getRowItems(row: Row<Lead>) {
   ]
 }
 
-const columns: TableColumn<Lead>[] = [
+const columns: TableColumn<GroupedLead>[] = [
   {
     id: 'select',
     header: ({ table }) =>
@@ -208,6 +256,8 @@ const columns: TableColumn<Lead>[] = [
     accessorKey: 'name',
     header: 'Лид',
     cell: ({ row }) => {
+      const grouped = row.original as GroupedLead
+      const count = grouped.allIds?.length ?? 1
       return h('button', {
         class: 'flex items-center gap-3 text-left w-full',
         onClick: () => openLead(row.original.id)
@@ -217,8 +267,11 @@ const columns: TableColumn<Lead>[] = [
           alt: row.original.name,
           size: 'lg'
         }),
-        h('div', undefined, [
-          h('p', { class: 'font-medium text-highlighted' }, row.original.name)
+        h('div', { class: 'flex items-center gap-2' }, [
+          h('p', { class: 'font-medium text-highlighted' }, row.original.name),
+          count > 1
+            ? h(UBadge, { color: 'neutral', variant: 'soft', size: 'xs' }, () => `×${count}`)
+            : null
         ])
       ])
     }
@@ -246,7 +299,17 @@ const columns: TableColumn<Lead>[] = [
   },
   {
     accessorKey: 'chatTitle',
-    header: 'Чат'
+    header: 'Чат',
+    cell: ({ row }) => {
+      const grouped = row.original as GroupedLead
+      const titles = grouped.chatTitles?.length ? grouped.chatTitles : [row.original.chatTitle].filter(Boolean)
+      if (!titles.length) return '—'
+      if (titles.length === 1) return titles[0]
+      return h('div', { class: 'flex flex-wrap items-center gap-1' }, [
+        h('span', { class: 'truncate max-w-28' }, titles[0]),
+        h(UBadge, { color: 'neutral', variant: 'soft', size: 'xs' }, () => `+${titles.length - 1}`)
+      ])
+    }
   },
   {
     accessorKey: 'semanticCategory',
@@ -263,9 +326,12 @@ const columns: TableColumn<Lead>[] = [
     accessorKey: 'merchantId',
     header: 'Компания',
     cell: ({ row }) => {
-      const mid = row.original.company || row.original.merchantId
-      if (!mid || mid === 'default') return '—'
-      return h('span', { class: 'text-xs font-mono' }, mid)
+      const mid = row.original.merchantId || row.original.companyId
+      if (mid && mid !== 'default') {
+        const name = companies.value.find(c => c.id === mid)?.name
+        if (name) return h('span', name)
+      }
+      return '—'
     }
   },
   {
@@ -437,18 +503,8 @@ function exportCSV() {
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
-
-        <template #right>
-          <UButton
-            icon="i-lucide-plus"
-            label="Новый лид"
-            color="primary"
-            @click="toast.add({ title: 'Ручное создание лида', description: 'Будет подключено к backend endpoint создания.', color: 'info' })"
-          />
-        </template>
       </UDashboardNavbar>
     </template>
-
     <template #body>
       <div class="flex flex-wrap items-center justify-between gap-1.5">
         <UInput
@@ -596,7 +652,7 @@ function exportCSV() {
         v-model:pagination="pagination"
         :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
         class="shrink-0"
-        :data="scopedLeads"
+        :data="groupedScopedLeads"
         :columns="columns"
         :loading="isPending"
         :ui="{

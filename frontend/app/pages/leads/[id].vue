@@ -16,10 +16,13 @@ const { data: brief, status, refresh } = await useFetch<LeadBrief>(`/api/leads/$
 const lead = computed(() => (brief.value as LeadBrief | null)?.lead ?? null)
 const signals = computed(() => (brief.value as LeadBrief | null)?.signals ?? [])
 const briefData = computed(() => brief.value as LeadBrief | null)
+
 const selectedCompanyId = ref<string>('')
 const assigningTeam = ref(false)
 const newCompanyName = ref('')
 const addingCompany = ref(false)
+const updatingCategory = ref(false)
+const selectedCategory = ref<string>('')
 
 const { companies, loading: companiesLoading, addCompany, refresh: refreshCompanies } = useCompanies()
 
@@ -28,35 +31,15 @@ const companySelectItems = computed(() =>
 )
 
 const companyName = computed(() => {
-  if (selectedCompanyId.value) {
-    return companies.value.find(c => c.id === selectedCompanyId.value)?.name
-      ?? lead.value?.company
-      ?? lead.value?.merchantId
-      ?? 'Не назначена'
-  }
-  return lead.value?.company || lead.value?.merchantId || 'Не назначена'
+  const mid = selectedCompanyId.value || lead.value?.merchantId
+  if (mid) return companies.value.find(c => c.id === mid)?.name ?? '—'
+  return '—'
 })
 
-const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral'> = {
-  new: 'primary',
-  contacted: 'warning',
-  qualified: 'success',
-  converted: 'success',
-  rejected: 'error'
-}
-
-const statusLabel: Record<LeadStatus, string> = {
-  new: 'Новый',
-  contacted: 'Первичный контакт',
-  qualified: 'В работе',
-  converted: 'Сделка / подключен',
-  rejected: 'Мусор / закрыт'
-}
-
 const categoryLabel: Record<string, string> = {
-  leads: 'Лиды',
-  traders: 'Трейдеры',
-  merchants: 'Мерчанты',
+  leads: 'Лид',
+  traders: 'Трейдер',
+  merchants: 'Мерчант',
   ps_offers: 'Предложение ПС',
   noise: 'Шум'
 }
@@ -69,59 +52,36 @@ const categoryColor: Record<string, 'primary' | 'success' | 'warning' | 'info' |
   noise: 'neutral'
 }
 
-function nextActionLabel(status: LeadStatus): string {
-  switch (status) {
-    case 'new':
-      return 'Связаться'
-    case 'contacted':
-      return 'Уточнить запрос'
-    case 'qualified':
-      return 'Подготовить оффер'
-    case 'converted':
-      return 'Сопровождать'
-    case 'rejected':
-      return 'Архив'
-    default:
-      return 'Проверить'
-  }
+const categorySelectItems = [
+  { label: 'Лид', value: 'leads' },
+  { label: 'Трейдер', value: 'traders' },
+  { label: 'Мерчант', value: 'merchants' },
+  { label: 'Предложение ПС', value: 'ps_offers' },
+  { label: 'Шум / мусор', value: 'noise' }
+]
+
+const statusLabel: Record<LeadStatus, string> = {
+  new: 'Новый',
+  contacted: 'Первичный контакт',
+  qualified: 'В работе',
+  converted: 'Подключён',
+  rejected: 'Закрыт'
 }
 
-async function approve() {
-  await $fetch(`/api/leads/${leadID}/approve`, { method: 'POST' })
-  toast.add({ title: 'Лид одобрен', color: 'success' })
-  await refresh()
+const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral'> = {
+  new: 'primary',
+  contacted: 'warning',
+  qualified: 'success',
+  converted: 'success',
+  rejected: 'neutral'
 }
 
-async function reject() {
-  await $fetch(`/api/leads/${leadID}/reject`, { method: 'POST' })
-  toast.add({ title: 'Лид отклонён', color: 'warning' })
-  await refresh()
-}
-
-async function deleteLead() {
-  const ok = window.confirm(`Удалить лид "${lead.value?.name || leadID}" из CRM?`)
-  if (!ok) return
-  await $fetch(`/api/leads/${leadID}`, { method: 'DELETE' })
-  toast.add({ title: 'Лид удален', color: 'success' })
-  router.push('/leads')
-}
-
-function copyToClipboard(text: string) {
-  window.navigator.clipboard.writeText(text)
-}
-
-async function setStatus(newStatus: LeadStatus) {
-  await $fetch(`/api/leads/${leadID}/status`, {
-    method: 'PATCH',
-    body: { status: newStatus }
-  })
-  toast.add({ title: `Статус обновлён: ${statusLabel[newStatus]}`, color: 'success' })
-  await refresh()
-}
-
-function goBackToLeads() {
-  router.push('/leads')
-}
+// qualification: userFeedback=null → unreviewed, true → lead, false → not-lead
+const qualificationState = computed(() => {
+  if (lead.value?.userFeedback === true) return 'lead'
+  if (lead.value?.userFeedback === false) return 'not-lead'
+  return 'unreviewed'
+})
 
 function buildContactHref(raw?: string | null): string {
   const value = String(raw || '').trim()
@@ -131,9 +91,7 @@ function buildContactHref(raw?: string | null): string {
   return ''
 }
 
-const contactHref = computed(() => {
-  return buildContactHref(lead.value?.contact)
-})
+const contactHref = computed(() => buildContactHref(lead.value?.contact))
 
 function parseDateSafe(value?: string | null): Date | null {
   if (!value) return null
@@ -151,6 +109,49 @@ function formatDistanceSafe(value?: string | null): string {
   const date = parseDateSafe(value)
   if (!date) return ''
   return formatDistanceToNow(date, { addSuffix: true })
+}
+
+function copyToClipboard(text: string) {
+  window.navigator.clipboard.writeText(text)
+  toast.add({ title: 'Скопировано', color: 'success' })
+}
+
+async function approve() {
+  await $fetch(`/api/leads/${leadID}/approve`, { method: 'POST' })
+  toast.add({ title: 'Отмечен как лид', description: 'Данные переданы ИИ-классификатору', color: 'success' })
+  await refresh()
+}
+
+async function reject() {
+  await $fetch(`/api/leads/${leadID}/reject`, { method: 'POST' })
+  toast.add({ title: 'Отмечен как не-лид', description: 'Данные переданы ИИ-классификатору', color: 'warning' })
+  await refresh()
+}
+
+async function setStatus(newStatus: LeadStatus) {
+  await $fetch(`/api/leads/${leadID}/status`, {
+    method: 'PATCH',
+    body: { status: newStatus }
+  })
+  toast.add({ title: `Статус: ${statusLabel[newStatus]}`, color: 'success' })
+  await refresh()
+}
+
+async function updateCategory() {
+  if (!selectedCategory.value || selectedCategory.value === lead.value?.semanticCategory) return
+  updatingCategory.value = true
+  try {
+    await $fetch(`/api/leads/${leadID}/category`, {
+      method: 'PATCH',
+      body: { category: selectedCategory.value }
+    })
+    toast.add({ title: 'Категория обновлена', color: 'success' })
+    await refresh()
+  } catch (e: any) {
+    toast.add({ title: 'Ошибка', description: e?.message, color: 'error' })
+  } finally {
+    updatingCategory.value = false
+  }
 }
 
 async function assignTeam() {
@@ -180,18 +181,30 @@ async function addCompanyFromLeadCard() {
     const created = [...companies.value].reverse().find(c => c.name === name)
     if (created) selectedCompanyId.value = created.id
     newCompanyName.value = ''
-    toast.add({ title: 'Компания создана', description: 'Добавлена в общий список компаний', color: 'success' })
+    toast.add({ title: 'Компания создана', color: 'success' })
   } catch (e: any) {
-    toast.add({ title: 'Ошибка', description: e?.message || 'Не удалось создать компанию', color: 'error' })
+    toast.add({ title: 'Ошибка', description: e?.message, color: 'error' })
   } finally {
     addingCompany.value = false
   }
 }
 
+async function deleteLead() {
+  const ok = window.confirm(`Удалить "${lead.value?.name || leadID}" из CRM?`)
+  if (!ok) return
+  await $fetch(`/api/leads/${leadID}`, { method: 'DELETE' })
+  toast.add({ title: 'Удалено', color: 'success' })
+  router.push('/leads')
+}
+
+function goBackToLeads() {
+  router.push('/leads')
+}
+
 watch(lead, (value) => {
   if (!value) return
-  const merchantId = value.merchantId || value.companyId || ''
-  selectedCompanyId.value = merchantId
+  selectedCompanyId.value = value.merchantId || value.companyId || ''
+  selectedCategory.value = value.semanticCategory || 'leads'
 }, { immediate: true })
 </script>
 
@@ -207,31 +220,32 @@ watch(lead, (value) => {
             @click="goBackToLeads"
           />
         </template>
-
         <template #right>
           <div v-if="lead" class="flex items-center gap-2">
             <UButton
+              v-if="contactHref"
+              :href="contactHref"
+              target="_blank"
+              icon="i-lucide-send"
+              label="Написать"
+              color="primary"
+              variant="soft"
+              size="sm"
+            />
+            <UButton
+              icon="i-lucide-copy"
+              label="Контакт"
+              color="neutral"
+              variant="soft"
+              size="sm"
+              @click="copyToClipboard(lead.contact || '')"
+            />
+            <UButton
               icon="i-lucide-trash-2"
-              label="Удалить из CRM"
               color="error"
-              variant="soft"
+              variant="ghost"
+              size="sm"
               @click="deleteLead"
-            />
-            <UButton
-              v-if="lead.status === 'new'"
-              icon="i-lucide-check"
-              label="Одобрить"
-              color="success"
-              variant="soft"
-              @click="approve"
-            />
-            <UButton
-              v-if="lead.status === 'new'"
-              icon="i-lucide-x"
-              label="Отклонить"
-              color="error"
-              variant="soft"
-              @click="reject"
             />
           </div>
         </template>
@@ -240,8 +254,9 @@ watch(lead, (value) => {
 
     <template #body>
       <div v-if="status === 'pending'" class="space-y-4">
-        <USkeleton class="h-24 w-full" />
-        <USkeleton class="h-48 w-full" />
+        <USkeleton class="h-28 w-full" />
+        <USkeleton class="h-40 w-full" />
+        <USkeleton class="h-40 w-full" />
       </div>
 
       <div v-else-if="!lead" class="flex h-full items-center justify-center">
@@ -254,100 +269,154 @@ watch(lead, (value) => {
       </div>
 
       <div v-else class="space-y-4">
-        <UCard class="sticky top-0 z-10 border border-primary/20 bg-primary/5 backdrop-blur">
+
+        <UCard>
           <template #header>
-            <h3 class="font-semibold">
-              Быстрые действия
-            </h3>
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="font-semibold">
+                Это целевой лид?
+              </h3>
+              <UBadge
+                v-if="qualificationState === 'lead'"
+                color="success"
+                variant="soft"
+                icon="i-lucide-check-circle"
+              >
+                Подтверждён как лид
+              </UBadge>
+              <UBadge
+                v-else-if="qualificationState === 'not-lead'"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-x-circle"
+              >
+                Не является лидом
+              </UBadge>
+              <UBadge
+                v-else
+                color="warning"
+                variant="soft"
+                icon="i-lucide-circle-dashed"
+              >
+                Не оценено
+              </UBadge>
+            </div>
           </template>
-          <div class="flex flex-wrap items-center gap-2">
+
+          <div class="flex flex-wrap gap-2">
             <UButton
-              v-if="contactHref"
-              :href="contactHref"
-              target="_blank"
-              icon="i-lucide-message-circle"
-              label="Связаться"
-              color="primary"
-              variant="soft"
+              :color="qualificationState === 'lead' ? 'success' : 'neutral'"
+              :variant="qualificationState === 'lead' ? 'soft' : 'outline'"
+              icon="i-lucide-thumbs-up"
+              label="Да, это лид"
+              @click="approve"
             />
             <UButton
-              icon="i-lucide-copy"
-              label="Скопировать контакт"
-              color="neutral"
-              variant="soft"
-              @click="copyToClipboard(lead.contact || '')"
+              :color="qualificationState === 'not-lead' ? 'error' : 'neutral'"
+              :variant="qualificationState === 'not-lead' ? 'soft' : 'outline'"
+              icon="i-lucide-thumbs-down"
+              label="Не лид / мусор"
+              @click="reject"
             />
-            <UButton
-              icon="i-lucide-building-2"
-              label="Назначить компанию"
-              color="info"
-              variant="soft"
-              @click="assignTeam"
-            />
-            <UButton
-              icon="i-lucide-circle-x"
-              label="Закрыть лид"
-              color="error"
-              variant="soft"
-              @click="setStatus('rejected')"
-            />
+          </div>
+          <p class="text-xs text-muted mt-3 flex items-center gap-1.5">
+            <UIcon name="i-lucide-brain-circuit" class="size-3.5 shrink-0" />
+            Ваш ответ передаётся ИИ-классификатору и улучшает точность автоматического определения
+          </p>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="font-semibold">
+                Классификация ИИ
+              </h3>
+              <UBadge
+                :color="categoryColor[String(lead.semanticCategory || 'leads')] || 'neutral'"
+                variant="soft"
+              >
+                {{ categoryLabel[String(lead.semanticCategory || 'leads')] || lead.semanticCategory }}
+              </UBadge>
+            </div>
+          </template>
+
+          <div class="space-y-3">
+            <!-- Confidence score bar -->
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-muted w-24 shrink-0">Уверенность</span>
+              <div class="flex-1 bg-muted/30 rounded-full h-1.5">
+                <div
+                  class="h-1.5 rounded-full bg-primary transition-all"
+                  :style="`width: ${Math.min(Math.round((lead.score ?? 0) * 100), 100)}%`"
+                />
+              </div>
+              <span class="text-xs font-mono w-10 text-right">
+                {{ Math.min(Math.round((lead.score ?? 0) * 100), 100) }}%
+              </span>
+            </div>
+
+            <div>
+              <p class="text-xs text-muted mb-1.5">
+                Категория определена автоматически. Если ошибочна — исправьте:
+              </p>
+              <div class="flex items-center gap-2">
+                <USelect
+                  v-model="selectedCategory"
+                  :items="categorySelectItems"
+                  icon="i-lucide-tag"
+                  class="min-w-44"
+                />
+                <UButton
+                  label="Исправить"
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                  :loading="updatingCategory"
+                  :disabled="selectedCategory === lead.semanticCategory"
+                  @click="updateCategory"
+                />
+              </div>
+            </div>
           </div>
         </UCard>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <UCard>
-            <template #header>
-              <p class="text-xs text-muted">
-                Статус
-              </p>
-            </template>
-            <UBadge :color="statusColor[lead.status]" variant="subtle" class="capitalize">
-              {{ statusLabel[lead.status] }}
-            </UBadge>
-          </UCard>
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="font-semibold">
+                Воронка CRM
+              </h3>
+              <UBadge
+                :color="statusColor[lead.status]"
+                variant="subtle"
+              >
+                {{ statusLabel[lead.status] }}
+              </UBadge>
+            </div>
+          </template>
 
-          <UCard>
-            <template #header>
-              <p class="text-xs text-muted">
-                Следующий шаг
-              </p>
-            </template>
-            <UBadge color="neutral" variant="subtle">
-              {{ nextActionLabel(lead.status) }}
-            </UBadge>
-          </UCard>
-
-          <UCard>
-            <template #header>
-              <p class="text-xs text-muted">
-                Чат
-              </p>
-            </template>
-            <p class="text-sm font-medium truncate">
-              {{ lead.chatTitle || '—' }}
-            </p>
-          </UCard>
-
-          <UCard>
-            <template #header>
-              <p class="text-xs text-muted">
-                Сигналов
-              </p>
-            </template>
-            <p class="text-2xl font-semibold">
-              {{ briefData?.signalsCount ?? 0 }}
-            </p>
-          </UCard>
-        </div>
+          <div class="flex flex-wrap gap-2">
+            <UButton
+              v-for="s in (['new', 'contacted', 'qualified', 'converted', 'rejected'] as LeadStatus[])"
+              :key="s"
+              :color="lead.status === s ? statusColor[s] : 'neutral'"
+              :variant="lead.status === s ? 'soft' : 'ghost'"
+              size="sm"
+              @click="setStatus(s)"
+            >
+              {{ statusLabel[s] }}
+            </UButton>
+          </div>
+        </UCard>
 
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
               <h3 class="font-semibold">
-                Данные лида
+                Данные
               </h3>
               <p class="text-xs text-muted">
-                {{ briefData?.lastSeenAt ? `Последний раз: ${formatDistanceSafe(briefData.lastSeenAt)}` : '' }}
+                {{ briefData?.lastSeenAt ? `Последний: ${formatDistanceSafe(briefData.lastSeenAt)}` : '' }}
               </p>
             </div>
           </template>
@@ -357,31 +426,40 @@ watch(lead, (value) => {
               <p class="text-muted text-xs">
                 Контакт
               </p>
-              <p>{{ lead.contact || '—' }}</p>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <span>{{ lead.contact || '—' }}</span>
+                <UButton
+                  v-if="contactHref"
+                  :href="contactHref"
+                  target="_blank"
+                  icon="i-lucide-send"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                />
+              </div>
             </div>
             <div>
               <p class="text-muted text-xs">
-                Компания
+                Чат
               </p>
-              <p>{{ companyName }}</p>
+              <p class="mt-0.5">
+                {{ lead.chatTitle || '—' }}
+              </p>
             </div>
             <div>
               <p class="text-muted text-xs">
-                Категория
+                Сигналов
               </p>
-              <UBadge
-                :color="categoryColor[String(lead.semanticCategory || 'leads')] || 'neutral'"
-                variant="soft"
-                size="sm"
-              >
-                {{ categoryLabel[String(lead.semanticCategory || 'leads')] || lead.semanticCategory || 'Лиды' }}
-              </UBadge>
+              <p class="text-lg font-semibold mt-0.5">
+                {{ briefData?.signalsCount ?? 0 }}
+              </p>
             </div>
             <div v-if="lead.geo.length">
               <p class="text-muted text-xs">
                 Гео
               </p>
-              <div class="flex flex-wrap gap-1 mt-1">
+              <div class="flex flex-wrap gap-1 mt-0.5">
                 <UBadge
                   v-for="g in lead.geo"
                   :key="g"
@@ -397,7 +475,7 @@ watch(lead, (value) => {
               <p class="text-muted text-xs">
                 Продукты
               </p>
-              <div class="flex flex-wrap gap-1 mt-1">
+              <div class="flex flex-wrap gap-1 mt-0.5">
                 <UBadge
                   v-for="p in lead.products"
                   :key="p"
@@ -416,10 +494,10 @@ watch(lead, (value) => {
           <template #header>
             <div class="flex items-center justify-between">
               <h3 class="font-semibold">
-                Компания лида
+                Компания
               </h3>
               <UBadge
-                v-if="lead.company || lead.merchantId"
+                v-if="companyName !== '—'"
                 color="neutral"
                 variant="subtle"
                 size="sm"
@@ -437,7 +515,6 @@ watch(lead, (value) => {
               placeholder="Выбрать компанию..."
               class="min-w-56"
             />
-
             <UButton
               icon="i-lucide-save"
               label="Назначить"
@@ -451,7 +528,7 @@ watch(lead, (value) => {
             <UInput
               v-model="newCompanyName"
               icon="i-lucide-plus"
-              placeholder="Создать компанию..."
+              placeholder="Создать новую компанию..."
               class="min-w-56"
               @keydown.enter.prevent="addCompanyFromLeadCard"
             />
@@ -470,32 +547,12 @@ watch(lead, (value) => {
         <UCard>
           <template #header>
             <h3 class="font-semibold">
-              Воронка
-            </h3>
-          </template>
-          <div class="flex flex-wrap gap-2">
-            <UButton
-              v-for="s in (['new', 'contacted', 'qualified', 'converted', 'rejected'] as LeadStatus[])"
-              :key="s"
-              :color="lead.status === s ? statusColor[s] : 'neutral'"
-              :variant="lead.status === s ? 'soft' : 'ghost'"
-              size="sm"
-              @click="setStatus(s)"
-            >
-              {{ statusLabel[s] }}
-            </UButton>
-          </div>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <h3 class="font-semibold">
-              История сообщений в чате
+              История сигналов
             </h3>
           </template>
 
-          <div v-if="!signals.length" class="text-sm text-muted">
-            Нет сообщений.
+          <div v-if="!signals.length" class="text-sm text-muted py-2">
+            Нет сигналов.
           </div>
 
           <div v-else class="space-y-3">
@@ -504,48 +561,45 @@ watch(lead, (value) => {
               :key="signal.id"
               class="border border-default rounded-lg p-3"
             >
-              <div class="flex items-center justify-between gap-2">
-                <p class="font-medium text-sm">
-                  {{ signal.fromName || 'Неизвестный отправитель' }}
-                </p>
-                <p class="text-xs text-muted">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+                  <UBadge
+                    v-if="signal.isLead"
+                    color="success"
+                    variant="soft"
+                    size="xs"
+                    icon="i-lucide-target"
+                  >
+                    лид
+                  </UBadge>
+                  <template v-if="signal.semanticCategory && signal.semanticCategory !== 'stream'">
+                    <UBadge
+                      :color="categoryColor[String(signal.semanticCategory)] || 'neutral'"
+                      variant="soft"
+                      size="xs"
+                    >
+                      {{ categoryLabel[String(signal.semanticCategory)] || signal.semanticCategory }}
+                    </UBadge>
+                    <span
+                      v-if="signal.categoryAssignedAt"
+                      class="text-xs text-muted"
+                    >
+                      {{ formatDateSafe(signal.categoryAssignedAt) }}
+                    </span>
+                  </template>
+                  <span class="text-xs text-muted truncate">{{ signal.chatTitle }}</span>
+                </div>
+                <p class="text-xs text-muted shrink-0">
                   {{ formatDateSafe(signal.date) }}
                 </p>
               </div>
-              <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                <p class="text-xs text-muted">
-                  {{ signal.chatTitle }}
-                </p>
-                <UButton
-                  v-if="buildContactHref(signal.contact)"
-                  :href="buildContactHref(signal.contact)"
-                  target="_blank"
-                  icon="i-lucide-send"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                />
-                <UBadge
-                  v-if="signal.isLead"
-                  label="лид"
-                  color="success"
-                  variant="soft"
-                  size="xs"
-                />
-                <UBadge
-                  v-if="signal.semanticCategory"
-                  :label="categoryLabel[String(signal.semanticCategory)] || signal.semanticCategory"
-                  :color="categoryColor[String(signal.semanticCategory)] || 'neutral'"
-                  variant="soft"
-                  size="xs"
-                />
-              </div>
-              <p class="text-sm mt-2">
+              <p class="text-sm mt-2 text-highlighted">
                 {{ signal.text }}
               </p>
             </div>
           </div>
         </UCard>
+
       </div>
     </template>
   </UDashboardPanel>

@@ -2,7 +2,7 @@ import { proxyBackendData } from '~~/server/utils/api-proxy'
 
 export default eventHandler(async (event) => {
   const form = await readMultipartFormData(event)
-  const filePart = form?.find((part) => part.name === 'file')
+  const filePart = form?.find(part => part.name === 'file')
 
   if (!filePart?.data || !filePart.filename) {
     throw createError({

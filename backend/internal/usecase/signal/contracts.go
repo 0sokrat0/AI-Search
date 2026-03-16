@@ -49,6 +49,7 @@ type DTO struct {
 	IsViewed               bool     `json:"isViewed"`
 	IsNew                  bool     `json:"isNew"`
 	OtherChatsCount        int      `json:"otherChatsCount"`
+	SemanticFlags          []string `json:"semanticFlags"`
 }
 
 type FeedbackInput struct {

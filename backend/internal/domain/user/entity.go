@@ -205,6 +205,11 @@ func (u *User) AddRole(role Role) {
 	u.updatedAt = time.Now()
 }
 
+func (u *User) SetRoles(roles []Role) {
+	u.roles = NormalizeRoles(roles)
+	u.updatedAt = time.Now()
+}
+
 func (u *User) RemoveRole(role Role) error {
 	role = NormalizeRole(role)
 	if role == RoleSuperAdmin && u.HasRole(RoleSuperAdmin) {

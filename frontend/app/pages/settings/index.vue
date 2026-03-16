@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import type { AppSettings } from '~/types'
+
 definePageMeta({
   middleware: 'auth'
 })
-
-import type { AppSettings } from '~/types'
 
 const toast = useToast()
 const auth = useAuthStore()
@@ -34,6 +34,7 @@ const senderWindow = ref(60)
 const traderThreshold = ref(0.60)
 const merchantThreshold = ref(0.60)
 const psOfferThreshold = ref(0.60)
+const ignoreKeywords = ref('')
 watch(settings, (next) => {
   if (!next) return
   leadThreshold.value = sliderToNumber(next.lead_threshold, 0.70)
@@ -41,6 +42,7 @@ watch(settings, (next) => {
   traderThreshold.value = sliderToNumber(next.trader_threshold, 0.60)
   merchantThreshold.value = sliderToNumber(next.merchant_threshold, 0.60)
   psOfferThreshold.value = sliderToNumber(next.ps_offer_threshold, 0.60)
+  ignoreKeywords.value = next.ignore_keywords || ''
 }, { immediate: true })
 
 const saving = ref(false)
@@ -57,6 +59,7 @@ async function save() {
     trader_threshold: clamp(sliderToNumber(traderThreshold.value, 0.60), 0.3, 0.99),
     merchant_threshold: clamp(sliderToNumber(merchantThreshold.value, 0.60), 0.3, 0.99),
     ps_offer_threshold: clamp(sliderToNumber(psOfferThreshold.value, 0.60), 0.3, 0.99),
+    ignore_keywords: ignoreKeywords.value
   }
 
   saving.value = true
@@ -74,7 +77,6 @@ async function save() {
     saving.value = false
   }
 }
-
 </script>
 
 <template>
@@ -88,91 +90,163 @@ async function save() {
     />
 
     <template v-else>
-    <UPageCard
-      title="Настройки ИИ"
-      description="Служебные параметры авто-классификации. Рекомендуется менять только при необходимости."
-      variant="naked"
-      orientation="horizontal"
-      class="mb-4"
-    >
-      <UButton
-        label="Сохранить"
-        color="neutral"
-        :loading="saving"
-        class="w-fit lg:ms-auto"
-        @click="save"
-      />
-    </UPageCard>
+      <UPageCard
+        title="Настройки ИИ"
+        description="Служебные параметры авто-классификации. Рекомендуется менять только при необходимости."
+        variant="naked"
+        orientation="horizontal"
+        class="mb-4"
+      >
+        <UButton
+          label="Сохранить"
+          color="neutral"
+          :loading="saving"
+          class="w-fit lg:ms-auto"
+          @click="save"
+        />
+      </UPageCard>
 
-    <UPageCard variant="subtle">
-      <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
-        <div class="flex-1">
-          <p class="font-medium text-sm">Минимальная уверенность для авто-пометки как лид</p>
-          <p class="text-xs text-muted mt-1">
-            Если уверенность ниже, сигнал не будет автоматически продвигаться в лиды.
-          </p>
+      <UPageCard variant="subtle">
+        <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
+          <div class="flex-1">
+            <p class="font-medium text-sm">
+              Минимальная уверенность для авто-пометки как лид
+            </p>
+            <p class="text-xs text-muted mt-1">
+              Если уверенность ниже, сигнал не будет автоматически продвигаться в лиды.
+            </p>
+          </div>
+          <div class="flex items-center gap-3 min-w-48">
+            <USlider
+              v-model="leadThreshold"
+              :min="0.3"
+              :max="0.99"
+              :step="0.01"
+              tooltip
+              class="flex-1"
+            />
+            <span class="font-mono text-sm w-10 text-right">{{ leadThreshold.toFixed(2) }}</span>
+          </div>
         </div>
-        <div class="flex items-center gap-3 min-w-48">
-          <USlider v-model="leadThreshold" :min="0.3" :max="0.99" :step="0.01" tooltip class="flex-1" />
-          <span class="font-mono text-sm w-10 text-right">{{ leadThreshold.toFixed(2) }}</span>
-        </div>
-      </div>
 
-      <USeparator />
+        <USeparator />
 
-      <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
-        <div class="flex-1">
-          <p class="font-medium text-sm">Окно объединения сообщений (сек)</p>
-          <p class="text-xs text-muted mt-1">
-            Сообщения одного отправителя в этом окне обрабатываются как единый контекст.
-          </p>
+        <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
+          <div class="flex-1">
+            <p class="font-medium text-sm">
+              Окно объединения сообщений (сек)
+            </p>
+            <p class="text-xs text-muted mt-1">
+              Сообщения одного отправителя в этом окне обрабатываются как единый контекст.
+            </p>
+          </div>
+          <div class="flex items-center gap-3 min-w-48">
+            <USlider
+              v-model="senderWindow"
+              :min="5"
+              :max="600"
+              :step="5"
+              tooltip
+              class="flex-1"
+            />
+            <span class="font-mono text-sm w-12 text-right">{{ senderWindow }}с</span>
+          </div>
         </div>
-        <div class="flex items-center gap-3 min-w-48">
-          <USlider v-model="senderWindow" :min="5" :max="600" :step="5" tooltip class="flex-1" />
-          <span class="font-mono text-sm w-12 text-right">{{ senderWindow }}с</span>
-        </div>
-      </div>
 
-      <USeparator />
+        <USeparator />
 
-      <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
-        <div class="flex-1">
-          <p class="font-medium text-sm">Минимальная уверенность для категории «Трейдер»</p>
-          <p class="text-xs text-muted mt-1">Ниже порога категория не присваивается автоматически.</p>
+        <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
+          <div class="flex-1">
+            <p class="font-medium text-sm">
+              Минимальная уверенность для категории «Трейдер»
+            </p>
+            <p class="text-xs text-muted mt-1">
+              Ниже порога категория не присваивается автоматически.
+            </p>
+          </div>
+          <div class="flex items-center gap-3 min-w-48">
+            <USlider
+              v-model="traderThreshold"
+              :min="0.3"
+              :max="0.99"
+              :step="0.01"
+              tooltip
+              class="flex-1"
+            />
+            <span class="font-mono text-sm w-10 text-right">{{ traderThreshold.toFixed(2) }}</span>
+          </div>
         </div>
-        <div class="flex items-center gap-3 min-w-48">
-          <USlider v-model="traderThreshold" :min="0.3" :max="0.99" :step="0.01" tooltip class="flex-1" />
-          <span class="font-mono text-sm w-10 text-right">{{ traderThreshold.toFixed(2) }}</span>
-        </div>
-      </div>
 
-      <USeparator />
+        <USeparator />
 
-      <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
-        <div class="flex-1">
-          <p class="font-medium text-sm">Минимальная уверенность для категории «Мерчант»</p>
-          <p class="text-xs text-muted mt-1">Ниже порога категория не присваивается автоматически.</p>
+        <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
+          <div class="flex-1">
+            <p class="font-medium text-sm">
+              Минимальная уверенность для категории «Мерчант»
+            </p>
+            <p class="text-xs text-muted mt-1">
+              Ниже порога категория не присваивается автоматически.
+            </p>
+          </div>
+          <div class="flex items-center gap-3 min-w-48">
+            <USlider
+              v-model="merchantThreshold"
+              :min="0.3"
+              :max="0.99"
+              :step="0.01"
+              tooltip
+              class="flex-1"
+            />
+            <span class="font-mono text-sm w-10 text-right">{{ merchantThreshold.toFixed(2) }}</span>
+          </div>
         </div>
-        <div class="flex items-center gap-3 min-w-48">
-          <USlider v-model="merchantThreshold" :min="0.3" :max="0.99" :step="0.01" tooltip class="flex-1" />
-          <span class="font-mono text-sm w-10 text-right">{{ merchantThreshold.toFixed(2) }}</span>
-        </div>
-      </div>
 
-      <USeparator />
+        <USeparator />
 
-      <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
-        <div class="flex-1">
-          <p class="font-medium text-sm">Минимальная уверенность для категории «Предложение ПС»</p>
-          <p class="text-xs text-muted mt-1">Ниже порога категория не присваивается автоматически.</p>
+        <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
+          <div class="flex-1">
+            <p class="font-medium text-sm">
+              Минимальная уверенность для категории «Предложение ПС»
+            </p>
+            <p class="text-xs text-muted mt-1">
+              Ниже порога категория не присваивается автоматически.
+            </p>
+          </div>
+          <div class="flex items-center gap-3 min-w-48">
+            <USlider
+              v-model="psOfferThreshold"
+              :min="0.3"
+              :max="0.99"
+              :step="0.01"
+              tooltip
+              class="flex-1"
+            />
+            <span class="font-mono text-sm w-10 text-right">{{ psOfferThreshold.toFixed(2) }}</span>
+          </div>
         </div>
-        <div class="flex items-center gap-3 min-w-48">
-          <USlider v-model="psOfferThreshold" :min="0.3" :max="0.99" :step="0.01" tooltip class="flex-1" />
-          <span class="font-mono text-sm w-10 text-right">{{ psOfferThreshold.toFixed(2) }}</span>
-        </div>
-      </div>
 
-    </UPageCard>
+        <USeparator />
+
+        <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
+          <div class="flex-1">
+            <p class="font-medium text-sm">
+              Ключевые слова для игнорирования
+            </p>
+            <p class="text-xs text-muted mt-1">
+              Сигналы, содержащие эти слова (через запятую), будут игнорироваться на этапе парсинга.
+            </p>
+          </div>
+          <div class="flex-1 w-full max-w-lg">
+            <UTextarea
+              v-model="ignoreKeywords"
+              placeholder="слово1, слово2, фраза 3..."
+              autoresize
+              :rows="2"
+              class="w-full font-mono text-sm"
+            />
+          </div>
+        </div>
+      </UPageCard>
     </template>
   </div>
 </template>

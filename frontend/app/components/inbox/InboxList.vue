@@ -26,7 +26,7 @@ function formatListDate(value?: string | null): string {
 function categoryLabel(category?: string | null): string {
   switch (String(category || '').toLowerCase()) {
     case 'traders':
-      return 'Трейдер'
+      return 'Трейдер/Поиск трейдеров'
     case 'merchants':
     case 'processing_requests':
       return 'Мерчант'
@@ -62,7 +62,7 @@ function toggleSelected(signalId: string, checked: boolean | 'indeterminate') {
     }
     return
   }
-  selectedIds.value = selectedIds.value.filter((id) => id !== signalId)
+  selectedIds.value = selectedIds.value.filter(id => id !== signalId)
 }
 
 watch(selectedMail, () => {
@@ -132,7 +132,12 @@ defineShortcuts({
               <UIcon name="i-heroicons-envelope" class="size-3.5 text-muted shrink-0" />
             </UTooltip>
 
-            <UBadge v-if="mail.unread" color="warning" variant="subtle" label="Новый" />
+            <UBadge
+              v-if="mail.unread"
+              color="warning"
+              variant="subtle"
+              label="Новый"
+            />
           </div>
 
           <span>{{ formatListDate(mail.date) }}</span>
@@ -148,6 +153,22 @@ defineShortcuts({
           <UBadge
             :label="categoryLabel(mail.category)"
             :color="categoryColor(mail.category)"
+            variant="subtle"
+            size="xs"
+          />
+          <UBadge
+            v-if="mail.categoryAssignedAt"
+            icon="i-lucide-clock"
+            :label="formatListDate(mail.categoryAssignedAt)"
+            color="neutral"
+            variant="soft"
+            size="xs"
+          />
+          <UBadge
+            v-if="mail.semanticFlags?.includes('has_traffic')"
+            icon="i-lucide-check-circle-2"
+            label="Трафик"
+            color="success"
             variant="subtle"
             size="xs"
           />
@@ -193,7 +214,6 @@ defineShortcuts({
             size="xs"
           />
         </div>
-
       </button>
     </div>
   </div>

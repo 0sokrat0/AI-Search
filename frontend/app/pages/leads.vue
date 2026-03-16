@@ -1,14 +1,14 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: 'auth'
-})
-
 import type { TableColumn } from '@nuxt/ui'
 import { upperFirst } from 'scule'
 import { getPaginationRowModel } from '@tanstack/table-core'
 import { formatDistanceToNow, isValid } from 'date-fns'
 import type { Row } from '@tanstack/table-core'
 import type { Lead, LeadStatus } from '~/types'
+
+definePageMeta({
+  middleware: 'auth'
+})
 
 const UAvatar = resolveComponent('UAvatar')
 const UButton = resolveComponent('UButton')
@@ -35,7 +35,7 @@ const bulkCompanyId = ref<string>('')
 
 const queryClient = useQueryClient()
 const { companies, loading: companiesLoading } = useCompanies()
-const companySelectItems = computed(() => companies.value.map((c) => ({ label: c.name, value: c.id })))
+const companySelectItems = computed(() => companies.value.map(c => ({ label: c.name, value: c.id })))
 const { data: leadsRaw, isPending } = useAuthQuery<Lead[]>(
   computed(() => ['leads', categoryFilter.value]),
   () => $fetch<Lead[]>('/api/leads', {
@@ -47,8 +47,8 @@ const data = computed(() => leadsRaw.value ?? [])
 
 const scopedLeads = computed(() => {
   return leadScope.value === 'archive'
-    ? data.value.filter((l) => l.status === 'converted' || l.status === 'rejected')
-    : data.value.filter((l) => l.status === 'new' || l.status === 'contacted' || l.status === 'qualified')
+    ? data.value.filter(l => l.status === 'converted' || l.status === 'rejected')
+    : data.value.filter(l => l.status === 'new' || l.status === 'contacted' || l.status === 'qualified')
 })
 
 function formatLastSeen(value?: string) {
@@ -190,18 +190,18 @@ const columns: TableColumn<Lead>[] = [
     id: 'select',
     header: ({ table }) =>
       h(UCheckbox, {
-        modelValue: table.getIsSomePageRowsSelected()
+        'modelValue': table.getIsSomePageRowsSelected()
           ? 'indeterminate'
           : table.getIsAllPageRowsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') =>
           table.toggleAllPageRowsSelected(!!value),
-        ariaLabel: 'Выбрать все лиды'
+        'ariaLabel': 'Выбрать все лиды'
       }),
     cell: ({ row }) =>
       h(UCheckbox, {
-        modelValue: row.getIsSelected(),
+        'modelValue': row.getIsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-        ariaLabel: 'Выбрать лид'
+        'ariaLabel': 'Выбрать лид'
       })
   },
   {
@@ -218,8 +218,7 @@ const columns: TableColumn<Lead>[] = [
           size: 'lg'
         }),
         h('div', undefined, [
-          h('p', { class: 'font-medium text-highlighted' }, row.original.name),
-          h('p', { class: 'text-dimmed text-xs' }, row.original.id)
+          h('p', { class: 'font-medium text-highlighted' }, row.original.name)
         ])
       ])
     }
@@ -378,23 +377,23 @@ async function withSelectedLeads(action: (leadId: string) => Promise<unknown>, s
 
 async function bulkArchive() {
   await withSelectedLeads(
-    (leadId) => $fetch(`/api/leads/${leadId}/status`, { method: 'PATCH', body: { status: 'rejected' } }),
+    leadId => $fetch(`/api/leads/${leadId}/status`, { method: 'PATCH', body: { status: 'rejected' } }),
     'Лиды перемещены в архив'
   )
 }
 
 async function bulkUpdateStatus() {
   await withSelectedLeads(
-    (leadId) => $fetch(`/api/leads/${leadId}/status`, { method: 'PATCH', body: { status: bulkStatus.value } }),
+    leadId => $fetch(`/api/leads/${leadId}/status`, { method: 'PATCH', body: { status: bulkStatus.value } }),
     `Обновлен статус: ${statusLabel[bulkStatus.value]}`
   )
 }
 
 async function bulkAssignCompany() {
   if (!bulkCompanyId.value) return
-  const companyName = companies.value.find((c) => c.id === bulkCompanyId.value)?.name ?? bulkCompanyId.value
+  const companyName = companies.value.find(c => c.id === bulkCompanyId.value)?.name ?? bulkCompanyId.value
   await withSelectedLeads(
-    (leadId) => $fetch(`/api/leads/${leadId}/merchant`, { method: 'PUT', body: { merchant_id: bulkCompanyId.value } }),
+    leadId => $fetch(`/api/leads/${leadId}/merchant`, { method: 'PUT', body: { merchant_id: bulkCompanyId.value } }),
     `Компания назначена: ${companyName}`
   )
 }
@@ -534,9 +533,19 @@ function exportCSV() {
       </div>
 
       <div v-if="selectedLeadIds.length" class="rounded-lg border border-default p-3 space-y-2">
-        <p class="text-xs text-muted">Bulk actions: выбрано {{ selectedLeadIds.length }} лидов</p>
+        <p class="text-xs text-muted">
+          Bulk actions: выбрано {{ selectedLeadIds.length }} лидов
+        </p>
         <div class="flex flex-wrap items-center gap-2">
-          <UButton size="xs" color="neutral" variant="soft" :loading="bulkLoading" @click="bulkArchive">Архивировать</UButton>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="soft"
+            :loading="bulkLoading"
+            @click="bulkArchive"
+          >
+            Архивировать
+          </UButton>
           <USelect
             v-model="bulkStatus"
             :items="[
@@ -549,7 +558,15 @@ function exportCSV() {
             size="xs"
             class="min-w-44"
           />
-          <UButton size="xs" color="primary" variant="soft" :loading="bulkLoading" @click="bulkUpdateStatus">Сменить статус</UButton>
+          <UButton
+            size="xs"
+            color="primary"
+            variant="soft"
+            :loading="bulkLoading"
+            @click="bulkUpdateStatus"
+          >
+            Сменить статус
+          </UButton>
           <USelect
             v-model="bulkCompanyId"
             :items="companySelectItems"
@@ -558,7 +575,16 @@ function exportCSV() {
             size="xs"
             class="min-w-56"
           />
-          <UButton size="xs" color="info" variant="soft" :loading="bulkLoading" :disabled="!bulkCompanyId" @click="bulkAssignCompany">Назначить</UButton>
+          <UButton
+            size="xs"
+            color="info"
+            variant="soft"
+            :loading="bulkLoading"
+            :disabled="!bulkCompanyId"
+            @click="bulkAssignCompany"
+          >
+            Назначить
+          </UButton>
         </div>
       </div>
 

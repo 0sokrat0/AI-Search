@@ -43,7 +43,7 @@ export interface User {
 
 export interface Mail {
   id: number
-  signalId: string   // реальный UUID из MongoDB (для API вызовов)
+  signalId: string // реальный UUID из MongoDB (для API вызовов)
   unread?: boolean
   from: User
   telegramUsername?: string
@@ -51,7 +51,7 @@ export interface Mail {
   body: string
   date: string
   leadId?: string | null
-  merchantName?: string   // имя компании, привязанной к лиду (заполняется локально)
+  merchantName?: string // имя компании, привязанной к лиду (заполняется локально)
   leadScore?: number | null
   similarityScore?: number | null
   classifiedAsLead?: boolean | null
@@ -63,11 +63,13 @@ export interface Mail {
   processingRequestScore?: number | null
   psOfferScore?: number | null
   noiseScore?: number | null
+  categoryAssignedAt?: string
   senderTelegramId: number
   isIgnored: boolean
   isTeamMember: boolean
   isDm: boolean
   otherChatsCount: number
+  semanticFlags?: string[]
   category?: 'traders' | 'merchants' | 'ps_offers' | 'noise'
   categoryReason?: string
 }
@@ -77,8 +79,8 @@ export type LeadPriority = 'low' | 'medium' | 'high' | 'critical'
 
 export interface Lead {
   id: string
-  name: string          // senderName
-  contact: string       // @username or senderID
+  name: string // senderName
+  contact: string // @username or senderID
   avatar?: AvatarProps
   chatTitle: string
   semanticDirection?: string
@@ -92,6 +94,7 @@ export interface Lead {
   geo: string[]
   products: string[]
   userFeedback: boolean | null
+  categoryAssignedAt?: string
   signalsCount: number
   lastSeenAt: string
 }
@@ -135,11 +138,13 @@ export interface SignalItem {
   processingRequestScore?: number | null
   psOfferScore?: number | null
   noiseScore?: number | null
+  categoryAssignedAt?: string
   senderTelegramId: number
   isIgnored: boolean
   isTeamMember: boolean
   isDm: boolean
   otherChatsCount: number
+  semanticFlags?: string[]
 }
 
 export interface ScoreBucket {
@@ -204,6 +209,7 @@ export interface Member {
 export interface AppSettings {
   lead_threshold: string
   sender_window_seconds: string
+  ignore_keywords?: string
   trader_threshold?: string
   merchant_threshold?: string
   ps_offer_threshold?: string

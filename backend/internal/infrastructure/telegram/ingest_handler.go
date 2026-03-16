@@ -11,6 +11,7 @@ import (
 	"MRG/internal/domain/lead"
 	"MRG/internal/domain/message"
 	"MRG/internal/domain/user"
+	"MRG/internal/infrastructure/storage/settings"
 	"MRG/internal/infrastructure/textnorm"
 
 	"go.uber.org/zap"
@@ -24,6 +25,7 @@ type IngestHandler struct {
 	leadRepo    lead.Repository
 	contactRepo contact.Repository
 	sieve       lead.Sieve
+	settings    *settings.Store
 
 	cleanupMu     sync.Mutex
 	lastCleanupAt time.Time
@@ -41,6 +43,7 @@ func NewIngestHandler(
 	leadRepo lead.Repository,
 	contactRepo contact.Repository,
 	sieve lead.Sieve,
+	settings *settings.Store,
 ) *IngestHandler {
 	return &IngestHandler{
 		tenantID:    tenantID,
@@ -50,11 +53,24 @@ func NewIngestHandler(
 		leadRepo:    leadRepo,
 		contactRepo: contactRepo,
 		sieve:       sieve,
+		settings:    settings,
 	}
 }
 
 func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 	h.maybeCleanupOldNoise(ctx)
+
+	ignoreKeywords := ""
+	if h.settings != nil {
+		ignoreKeywords = h.settings.GetString(ctx, "ignore_keywords", "")
+	}
+	keywords := strings.Split(ignoreKeywords, ",")
+	var activeKeywords []string
+	for _, k := range keywords {
+		if s := strings.TrimSpace(k); s != "" {
+			activeKeywords = append(activeKeywords, strings.ToLower(s))
+		}
+	}
 
 	for _, m := range msgs {
 		text := strings.TrimSpace(m.Text)
@@ -63,6 +79,20 @@ func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 		}
 
 		if h.isTeamMember(ctx, m.SenderID) {
+			continue
+		}
+
+		// Keyword filtering
+		lowerText := strings.ToLower(text)
+		ignoredByKeyword := false
+		for _, k := range activeKeywords {
+			if strings.Contains(lowerText, k) {
+				ignoredByKeyword = true
+				break
+			}
+		}
+		if ignoredByKeyword {
+			h.log.Debug("message ignored by keyword", zap.Int64("msg_id", m.MessageID), zap.String("text", text))
 			continue
 		}
 

@@ -7,25 +7,26 @@ import (
 )
 
 type Lead struct {
-	id                string
-	tenantID          string
-	messageID         string
-	chatID            int64
-	chatTitle         string
-	senderID          int64
-	senderName        string
-	senderUsername    string
-	text              string
-	geo               []string
-	products          []string
-	semanticDirection string
-	semanticCategory  string
-	merchantID        string
-	status            Status
-	score             float64
-	userFeedback      *bool
-	createdAt         time.Time
-	updatedAt         time.Time
+	id                 string
+	tenantID           string
+	messageID          string
+	chatID             int64
+	chatTitle          string
+	senderID           int64
+	senderName         string
+	senderUsername     string
+	text               string
+	geo                []string
+	products           []string
+	semanticDirection  string
+	semanticCategory   string
+	merchantID         string
+	status             Status
+	score              float64
+	userFeedback       *bool
+	categoryAssignedAt *time.Time
+	createdAt          time.Time
+	updatedAt          time.Time
 }
 
 func Detect(
@@ -72,51 +73,54 @@ func Restore(
 	status Status,
 	score float64,
 	userFeedback *bool,
+	categoryAssignedAt *time.Time,
 	createdAt, updatedAt time.Time,
 ) *Lead {
 	return &Lead{
-		id:                id,
-		tenantID:          tenantID,
-		messageID:         messageID,
-		chatID:            chatID,
-		chatTitle:         chatTitle,
-		senderID:          senderID,
-		senderName:        senderName,
-		senderUsername:    senderUsername,
-		text:              text,
-		geo:               ensureSlice(geo),
-		products:          ensureSlice(products),
-		semanticDirection: semanticDirection,
-		semanticCategory:  semanticCategory,
-		merchantID:        merchantID,
-		status:            status,
-		score:             score,
-		userFeedback:      userFeedback,
-		createdAt:         createdAt,
-		updatedAt:         updatedAt,
+		id:                 id,
+		tenantID:           tenantID,
+		messageID:          messageID,
+		chatID:             chatID,
+		chatTitle:          chatTitle,
+		senderID:           senderID,
+		senderName:         senderName,
+		senderUsername:     senderUsername,
+		text:               text,
+		geo:                ensureSlice(geo),
+		products:           ensureSlice(products),
+		semanticDirection:  semanticDirection,
+		semanticCategory:   semanticCategory,
+		merchantID:         merchantID,
+		status:             status,
+		score:              score,
+		userFeedback:       userFeedback,
+		categoryAssignedAt: categoryAssignedAt,
+		createdAt:          createdAt,
+		updatedAt:          updatedAt,
 	}
 }
 
-func (l *Lead) ID() string                { return l.id }
-func (l *Lead) TenantID() string          { return l.tenantID }
-func (l *Lead) MessageID() string         { return l.messageID }
-func (l *Lead) ChatID() int64             { return l.chatID }
-func (l *Lead) ChatTitle() string         { return l.chatTitle }
-func (l *Lead) SenderID() int64           { return l.senderID }
-func (l *Lead) SenderName() string        { return l.senderName }
-func (l *Lead) SenderUsername() string    { return l.senderUsername }
-func (l *Lead) Text() string              { return l.text }
-func (l *Lead) Geo() []string             { return copySlice(l.geo) }
-func (l *Lead) Products() []string        { return copySlice(l.products) }
-func (l *Lead) SemanticDirection() string { return l.semanticDirection }
-func (l *Lead) SemanticCategory() string  { return l.semanticCategory }
-func (l *Lead) MerchantID() string        { return l.merchantID }
-func (l *Lead) Status() Status            { return l.status }
-func (l *Lead) Score() float64            { return l.score }
-func (l *Lead) UserFeedback() *bool       { return l.userFeedback }
-func (l *Lead) CreatedAt() time.Time      { return l.createdAt }
-func (l *Lead) UpdatedAt() time.Time      { return l.updatedAt }
-func (l *Lead) Priority() Priority        { return PriorityFromScore(l.score) }
+func (l *Lead) ID() string                     { return l.id }
+func (l *Lead) TenantID() string               { return l.tenantID }
+func (l *Lead) MessageID() string              { return l.messageID }
+func (l *Lead) ChatID() int64                  { return l.chatID }
+func (l *Lead) ChatTitle() string              { return l.chatTitle }
+func (l *Lead) SenderID() int64                { return l.senderID }
+func (l *Lead) SenderName() string             { return l.senderName }
+func (l *Lead) SenderUsername() string         { return l.senderUsername }
+func (l *Lead) Text() string                   { return l.text }
+func (l *Lead) Geo() []string                  { return copySlice(l.geo) }
+func (l *Lead) Products() []string             { return copySlice(l.products) }
+func (l *Lead) SemanticDirection() string      { return l.semanticDirection }
+func (l *Lead) SemanticCategory() string       { return l.semanticCategory }
+func (l *Lead) MerchantID() string             { return l.merchantID }
+func (l *Lead) Status() Status                 { return l.status }
+func (l *Lead) Score() float64                 { return l.score }
+func (l *Lead) UserFeedback() *bool            { return l.userFeedback }
+func (l *Lead) CategoryAssignedAt() *time.Time { return l.categoryAssignedAt }
+func (l *Lead) CreatedAt() time.Time           { return l.createdAt }
+func (l *Lead) UpdatedAt() time.Time           { return l.updatedAt }
+func (l *Lead) Priority() Priority             { return PriorityFromScore(l.score) }
 
 func (l *Lead) SenderIdentifier() string {
 	if l.senderUsername != "" {
@@ -143,7 +147,9 @@ func (l *Lead) SetSemanticDirection(direction string) {
 
 func (l *Lead) SetSemanticCategory(category string) {
 	l.semanticCategory = category
-	l.updatedAt = time.Now()
+	now := time.Now()
+	l.categoryAssignedAt = &now
+	l.updatedAt = now
 }
 
 func (l *Lead) Advance(to Status) error {

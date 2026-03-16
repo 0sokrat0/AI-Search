@@ -6,7 +6,7 @@ export default eventHandler(async (event) => {
   const method = getMethod(event)
   const query = getQuery(event)
   const body = method !== 'GET' ? await readJSONBody(event) : undefined
-  
+
   return await proxyBackend(event, `/api/v1/accounts/${id}/${action}`, {
     method,
     query,

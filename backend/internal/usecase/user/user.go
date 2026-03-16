@@ -149,8 +149,9 @@ func (uc *UserUseCase) GetUser(ctx context.Context, userID string) (*user.User, 
 }
 
 type UpdateUserRequest struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	Name  string      `json:"name"`
+	Email string      `json:"email"`
+	Roles []user.Role `json:"roles"`
 }
 
 func (uc *UserUseCase) UpdateUser(ctx context.Context, userID string, req UpdateUserRequest) (*user.User, error) {
@@ -161,6 +162,13 @@ func (uc *UserUseCase) UpdateUser(ctx context.Context, userID string, req Update
 
 	if err := u.UpdateProfile(req.Name, req.Email); err != nil {
 		return nil, err
+	}
+
+	if len(req.Roles) > 0 {
+		normalized := user.NormalizeRoles(req.Roles)
+		if isAllowedUserRoleSet(normalized) {
+			u.SetRoles(normalized)
+		}
 	}
 
 	if err := uc.userRepo.Update(ctx, u); err != nil {

@@ -75,7 +75,7 @@ func Run(ctx context.Context, cfg *config.Config, log *zap.Logger) error {
 	leadUC.WithSieve(sieve)
 	log.Info("sieve ready", zap.String("provider", cfg.Embedding.Provider))
 
-	ingestHandler := telegram_infra.NewIngestHandler(cfg.SuperAdmin.TenantID, log, messageRepo, userRepo, leadRepo, contactRepo, sieve)
+	ingestHandler := telegram_infra.NewIngestHandler(cfg.SuperAdmin.TenantID, log, messageRepo, userRepo, leadRepo, contactRepo, sieve, settingsStore)
 	manager := telegram_infra.NewManager(cfg, log, db, ingestHandler)
 	if err := manager.StartFarm(ctx); err != nil {
 		log.Warn("telegram farm not started", zap.Error(err))

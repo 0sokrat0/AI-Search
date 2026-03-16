@@ -17,8 +17,8 @@ export const useAuthStore = defineStore('auth', {
   }),
 
   getters: {
-    isAuthenticated: (state) => !!state.accessToken && !!state.user,
-    currentUser: (state) => state.user,
+    isAuthenticated: state => !!state.accessToken && !!state.user,
+    currentUser: state => state.user,
     hasRole: (state) => {
       return (role: string) => state.user?.roles.includes(role as any) ?? false
     },
@@ -34,7 +34,7 @@ export const useAuthStore = defineStore('auth', {
       this.refreshToken = refreshToken
       this.user = user
 
-      if (process.client) {
+      if (import.meta.client) {
         localStorage.setItem('accessToken', accessToken)
         localStorage.setItem('refreshToken', refreshToken)
         localStorage.setItem('user', JSON.stringify(user))
@@ -49,7 +49,7 @@ export const useAuthStore = defineStore('auth', {
       this.refreshToken = null
       this.user = null
 
-      if (process.client) {
+      if (import.meta.client) {
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
         localStorage.removeItem('user')
@@ -60,7 +60,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     restoreAuth() {
-      if (process.client) {
+      if (import.meta.client) {
         const accessToken = localStorage.getItem('accessToken')
         const refreshToken = localStorage.getItem('refreshToken')
         const userJson = localStorage.getItem('user')

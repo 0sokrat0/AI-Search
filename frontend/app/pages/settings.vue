@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import type { NavigationMenuItem } from '@nuxt/ui'
+
 definePageMeta({
   middleware: 'auth'
 })
-
-import type { NavigationMenuItem } from '@nuxt/ui'
 
 const auth = useAuthStore()
 

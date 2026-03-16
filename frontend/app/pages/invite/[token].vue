@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import { z } from 'zod'
+import type { FormSubmitEvent } from '#ui/types'
+import type { Role } from '~/types/auth'
+
 definePageMeta({
   layout: 'auth',
   middleware: 'guest'
 })
-
-import { z } from 'zod'
-import type { FormSubmitEvent } from '#ui/types'
-import type { Role } from '~/types/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,7 +31,7 @@ const schema = z.object({
   email: z.string().email('Некорректный email'),
   password: z.string().min(8, 'Минимум 8 символов'),
   passwordConfirm: z.string().min(8, 'Минимум 8 символов')
-}).refine((data) => data.password === data.passwordConfirm, {
+}).refine(data => data.password === data.passwordConfirm, {
   message: 'Пароли не совпадают',
   path: ['passwordConfirm']
 })
@@ -104,29 +104,67 @@ async function handleAccept(event: FormSubmitEvent<Schema>) {
         <template v-else>
           <UForm :state="state" :schema="schema" @submit="handleAccept">
             <UFormField label="Имя" name="name" class="mb-4">
-              <UInput v-model="state.name" class="w-full" placeholder="Иван Иванов" :disabled="loading" size="lg" />
+              <UInput
+                v-model="state.name"
+                class="w-full"
+                placeholder="Иван Иванов"
+                :disabled="loading"
+                size="lg"
+              />
             </UFormField>
 
             <UFormField label="Почта" name="email" class="mb-4">
-              <UInput v-model="state.email" class="w-full" placeholder="user@example.com" type="email" :disabled="loading" size="lg" />
+              <UInput
+                v-model="state.email"
+                class="w-full"
+                placeholder="user@example.com"
+                type="email"
+                :disabled="loading"
+                size="lg"
+              />
             </UFormField>
 
             <UFormField label="Пароль" name="password" class="mb-4">
-              <UInput v-model="state.password" class="w-full" placeholder="••••••••" type="password" :disabled="loading" size="lg" />
+              <UInput
+                v-model="state.password"
+                class="w-full"
+                placeholder="••••••••"
+                type="password"
+                :disabled="loading"
+                size="lg"
+              />
             </UFormField>
 
             <UFormField label="Повтор пароля" name="passwordConfirm" class="mb-4">
-              <UInput v-model="state.passwordConfirm" class="w-full" placeholder="••••••••" type="password" :disabled="loading" size="lg" />
+              <UInput
+                v-model="state.passwordConfirm"
+                class="w-full"
+                placeholder="••••••••"
+                type="password"
+                :disabled="loading"
+                size="lg"
+              />
             </UFormField>
 
-            <UButton type="submit" color="primary" size="lg" block :loading="loading">
+            <UButton
+              type="submit"
+              color="primary"
+              size="lg"
+              block
+              :loading="loading"
+            >
               Создать аккаунт
             </UButton>
           </UForm>
         </template>
 
         <template #footer>
-          <UAlert v-if="!inviteError && error" color="error" variant="soft" :title="error" />
+          <UAlert
+            v-if="!inviteError && error"
+            color="error"
+            variant="soft"
+            :title="error"
+          />
         </template>
       </UCard>
     </div>

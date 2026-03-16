@@ -1,16 +1,16 @@
 <script setup lang="ts">
+import * as z from 'zod'
+import type { Member } from '~/types'
+
 definePageMeta({
   middleware: 'auth'
 })
-
-import * as z from 'zod'
-import type { Member } from '~/types'
 
 const toast = useToast()
 const auth = useAuthStore()
 const q = ref('')
 const showInvite = ref(false)
-const deleteTarget = ref<{ id: string; name: string } | null>(null)
+const deleteTarget = ref<{ id: string, name: string } | null>(null)
 const inviteLoading = ref(false)
 const deleteLoading = ref(false)
 const generatedInviteLink = ref('')
@@ -21,8 +21,8 @@ const { data: users, refresh } = await useFetch<Member[]>('/api/members', {
 
 const filtered = computed(() =>
   (users.value || []).filter(u =>
-    u.name.toLowerCase().includes(q.value.toLowerCase()) ||
-    u.email.toLowerCase().includes(q.value.toLowerCase())
+    u.name.toLowerCase().includes(q.value.toLowerCase())
+    || u.email.toLowerCase().includes(q.value.toLowerCase())
   )
 )
 
@@ -91,6 +91,25 @@ async function onCopyInvite() {
   toast.add({ title: 'Ссылка скопирована', color: 'success' })
 }
 
+async function updateRole(user: Member, newRole: 'super_admin' | 'employee') {
+  if (user.roles.includes(newRole as any) && user.roles.length === 1) return
+  
+  try {
+    await $fetch(`/api/users/${user.id}`, {
+      method: 'PUT',
+      body: {
+        name: user.name,
+        email: user.email,
+        roles: [newRole]
+      }
+    })
+    toast.add({ title: 'Роль обновлена', color: 'success' })
+    await refresh()
+  } catch (e: any) {
+    toast.add({ title: 'Ошибка обновления роли', description: e?.message, color: 'error' })
+  }
+}
+
 async function onDelete() {
   if (!deleteTarget.value) return
   deleteLoading.value = true
@@ -155,8 +174,12 @@ watch(showInvite, (open) => {
           <div class="flex items-center gap-3 min-w-0">
             <UAvatar :alt="user.name" size="md" />
             <div class="text-sm min-w-0">
-              <p class="text-highlighted font-medium truncate">{{ user.name }}</p>
-              <p class="text-muted truncate">{{ user.email }}</p>
+              <p class="text-highlighted font-medium truncate">
+                {{ user.name }}
+              </p>
+              <p class="text-muted truncate">
+                {{ user.email }}
+              </p>
             </div>
           </div>
 
@@ -178,12 +201,30 @@ watch(showInvite, (open) => {
             </UBadge>
 
             <UDropdownMenu
-              :items="[{
-                label: 'Удалить',
-                icon: 'i-lucide-trash-2',
-                color: 'error',
-                onSelect: () => deleteTarget = { id: user.id, name: user.name }
-              }]"
+              v-if="auth.isSuperAdmin"
+              :items="[
+                {
+                  label: 'Назначить Супер админом',
+                  icon: 'i-lucide-user-cog',
+                  disabled: user.roles.includes('super_admin'),
+                  onSelect: () => updateRole(user, 'super_admin')
+                },
+                {
+                  label: 'Назначить Сотрудником',
+                  icon: 'i-lucide-user',
+                  disabled: user.roles.includes('employee') && user.roles.length === 1,
+                  onSelect: () => updateRole(user, 'employee')
+                },
+                {
+                  type: 'separator'
+                },
+                {
+                  label: 'Удалить',
+                  icon: 'i-lucide-trash-2',
+                  color: 'error',
+                  onSelect: () => deleteTarget = { id: user.id, name: user.name }
+                }
+              ]"
               :content="{ align: 'end' }"
             >
               <UButton icon="i-lucide-ellipsis-vertical" color="neutral" variant="ghost" />
@@ -195,7 +236,12 @@ watch(showInvite, (open) => {
 
     <UModal v-model:open="showInvite" title="Новый инвайт" :ui="{ footer: 'justify-end' }">
       <template #body>
-        <UForm :schema="inviteSchema" :state="inviteForm" class="space-y-4" @submit="onGenerateInvite">
+        <UForm
+          :schema="inviteSchema"
+          :state="inviteForm"
+          class="space-y-4"
+          @submit="onGenerateInvite"
+        >
           <UFormField name="role" label="Роль" required>
             <USelect v-model="inviteForm.role" :items="roleOptions" class="w-full" />
           </UFormField>
@@ -213,9 +259,25 @@ watch(showInvite, (open) => {
         </UForm>
       </template>
       <template #footer>
-        <UButton label="Отмена" color="neutral" variant="ghost" @click="showInvite = false" />
-        <UButton v-if="generatedInviteLink" label="Копировать" color="neutral" variant="soft" @click="onCopyInvite" />
-        <UButton label="Сгенерировать" color="primary" :loading="inviteLoading" @click="onGenerateInvite" />
+        <UButton
+          label="Отмена"
+          color="neutral"
+          variant="ghost"
+          @click="showInvite = false"
+        />
+        <UButton
+          v-if="generatedInviteLink"
+          label="Копировать"
+          color="neutral"
+          variant="soft"
+          @click="onCopyInvite"
+        />
+        <UButton
+          label="Сгенерировать"
+          color="primary"
+          :loading="inviteLoading"
+          @click="onGenerateInvite"
+        />
       </template>
     </UModal>
 
@@ -232,8 +294,18 @@ watch(showInvite, (open) => {
         </p>
       </template>
       <template #footer>
-        <UButton label="Отмена" color="neutral" variant="ghost" @click="deleteTarget = null" />
-        <UButton label="Удалить" color="error" :loading="deleteLoading" @click="onDelete" />
+        <UButton
+          label="Отмена"
+          color="neutral"
+          variant="ghost"
+          @click="deleteTarget = null"
+        />
+        <UButton
+          label="Удалить"
+          color="error"
+          :loading="deleteLoading"
+          @click="onDelete"
+        />
       </template>
     </UModal>
   </div>

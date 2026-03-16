@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { format, formatDistanceToNow } from 'date-fns'
+import type { LeadBrief, LeadStatus } from '~/types'
+
 definePageMeta({
   middleware: 'auth'
 })
-
-import { format, formatDistanceToNow } from 'date-fns'
-import type { LeadBrief, LeadStatus } from '~/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,12 +24,12 @@ const addingCompany = ref(false)
 const { companies, loading: companiesLoading, addCompany, refresh: refreshCompanies } = useCompanies()
 
 const companySelectItems = computed(() =>
-  companies.value.map((c) => ({ label: c.name, value: c.id }))
+  companies.value.map(c => ({ label: c.name, value: c.id }))
 )
 
 const companyName = computed(() => {
   if (selectedCompanyId.value) {
-    return companies.value.find((c) => c.id === selectedCompanyId.value)?.name
+    return companies.value.find(c => c.id === selectedCompanyId.value)?.name
       ?? lead.value?.company
       ?? lead.value?.merchantId
       ?? 'Не назначена'
@@ -162,7 +162,7 @@ async function assignTeam() {
       method: 'PUT',
       body: { merchant_id: companyId }
     })
-    const name = companies.value.find((c) => c.id === companyId)?.name ?? companyId
+    const name = companies.value.find(c => c.id === companyId)?.name ?? companyId
     toast.add({ title: 'Компания назначена', description: name, color: 'success' })
     await refresh()
   } finally {
@@ -177,7 +177,7 @@ async function addCompanyFromLeadCard() {
   try {
     await addCompany(name)
     await refreshCompanies()
-    const created = [...companies.value].reverse().find((c) => c.name === name)
+    const created = [...companies.value].reverse().find(c => c.name === name)
     if (created) selectedCompanyId.value = created.id
     newCompanyName.value = ''
     toast.add({ title: 'Компания создана', description: 'Добавлена в общий список компаний', color: 'success' })
@@ -256,7 +256,9 @@ watch(lead, (value) => {
       <div v-else class="space-y-4">
         <UCard class="sticky top-0 z-10 border border-primary/20 bg-primary/5 backdrop-blur">
           <template #header>
-            <h3 class="font-semibold">Быстрые действия</h3>
+            <h3 class="font-semibold">
+              Быстрые действия
+            </h3>
           </template>
           <div class="flex flex-wrap items-center gap-2">
             <UButton
@@ -294,34 +296,56 @@ watch(lead, (value) => {
 
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <UCard>
-            <template #header><p class="text-xs text-muted">Статус</p></template>
+            <template #header>
+              <p class="text-xs text-muted">
+                Статус
+              </p>
+            </template>
             <UBadge :color="statusColor[lead.status]" variant="subtle" class="capitalize">
-                {{ statusLabel[lead.status] }}
+              {{ statusLabel[lead.status] }}
             </UBadge>
           </UCard>
 
           <UCard>
-            <template #header><p class="text-xs text-muted">Следующий шаг</p></template>
+            <template #header>
+              <p class="text-xs text-muted">
+                Следующий шаг
+              </p>
+            </template>
             <UBadge color="neutral" variant="subtle">
               {{ nextActionLabel(lead.status) }}
             </UBadge>
           </UCard>
 
           <UCard>
-            <template #header><p class="text-xs text-muted">Чат</p></template>
-            <p class="text-sm font-medium truncate">{{ lead.chatTitle || '—' }}</p>
+            <template #header>
+              <p class="text-xs text-muted">
+                Чат
+              </p>
+            </template>
+            <p class="text-sm font-medium truncate">
+              {{ lead.chatTitle || '—' }}
+            </p>
           </UCard>
 
           <UCard>
-            <template #header><p class="text-xs text-muted">Сигналов</p></template>
-            <p class="text-2xl font-semibold">{{ briefData?.signalsCount ?? 0 }}</p>
+            <template #header>
+              <p class="text-xs text-muted">
+                Сигналов
+              </p>
+            </template>
+            <p class="text-2xl font-semibold">
+              {{ briefData?.signalsCount ?? 0 }}
+            </p>
           </UCard>
         </div>
 
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
-              <h3 class="font-semibold">Данные лида</h3>
+              <h3 class="font-semibold">
+                Данные лида
+              </h3>
               <p class="text-xs text-muted">
                 {{ briefData?.lastSeenAt ? `Последний раз: ${formatDistanceSafe(briefData.lastSeenAt)}` : '' }}
               </p>
@@ -330,15 +354,21 @@ watch(lead, (value) => {
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div>
-              <p class="text-muted text-xs">Контакт</p>
+              <p class="text-muted text-xs">
+                Контакт
+              </p>
               <p>{{ lead.contact || '—' }}</p>
             </div>
             <div>
-              <p class="text-muted text-xs">Компания</p>
+              <p class="text-muted text-xs">
+                Компания
+              </p>
               <p>{{ companyName }}</p>
             </div>
             <div>
-              <p class="text-muted text-xs">Категория</p>
+              <p class="text-muted text-xs">
+                Категория
+              </p>
               <UBadge
                 :color="categoryColor[String(lead.semanticCategory || 'leads')] || 'neutral'"
                 variant="soft"
@@ -348,15 +378,35 @@ watch(lead, (value) => {
               </UBadge>
             </div>
             <div v-if="lead.geo.length">
-              <p class="text-muted text-xs">Гео</p>
+              <p class="text-muted text-xs">
+                Гео
+              </p>
               <div class="flex flex-wrap gap-1 mt-1">
-                <UBadge v-for="g in lead.geo" :key="g" color="neutral" variant="soft" size="sm">{{ g }}</UBadge>
+                <UBadge
+                  v-for="g in lead.geo"
+                  :key="g"
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                >
+                  {{ g }}
+                </UBadge>
               </div>
             </div>
             <div v-if="lead.products.length">
-              <p class="text-muted text-xs">Продукты</p>
+              <p class="text-muted text-xs">
+                Продукты
+              </p>
               <div class="flex flex-wrap gap-1 mt-1">
-                <UBadge v-for="p in lead.products" :key="p" color="primary" variant="soft" size="sm">{{ p }}</UBadge>
+                <UBadge
+                  v-for="p in lead.products"
+                  :key="p"
+                  color="primary"
+                  variant="soft"
+                  size="sm"
+                >
+                  {{ p }}
+                </UBadge>
               </div>
             </div>
           </div>
@@ -365,7 +415,9 @@ watch(lead, (value) => {
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
-              <h3 class="font-semibold">Компания лида</h3>
+              <h3 class="font-semibold">
+                Компания лида
+              </h3>
               <UBadge
                 v-if="lead.company || lead.merchantId"
                 color="neutral"
@@ -416,7 +468,11 @@ watch(lead, (value) => {
         </UCard>
 
         <UCard>
-          <template #header><h3 class="font-semibold">Воронка</h3></template>
+          <template #header>
+            <h3 class="font-semibold">
+              Воронка
+            </h3>
+          </template>
           <div class="flex flex-wrap gap-2">
             <UButton
               v-for="s in (['new', 'contacted', 'qualified', 'converted', 'rejected'] as LeadStatus[])"
@@ -425,12 +481,18 @@ watch(lead, (value) => {
               :variant="lead.status === s ? 'soft' : 'ghost'"
               size="sm"
               @click="setStatus(s)"
-            >{{ statusLabel[s] }}</UButton>
+            >
+              {{ statusLabel[s] }}
+            </UButton>
           </div>
         </UCard>
 
         <UCard>
-          <template #header><h3 class="font-semibold">История сообщений в чате</h3></template>
+          <template #header>
+            <h3 class="font-semibold">
+              История сообщений в чате
+            </h3>
+          </template>
 
           <div v-if="!signals.length" class="text-sm text-muted">
             Нет сообщений.
@@ -443,11 +505,17 @@ watch(lead, (value) => {
               class="border border-default rounded-lg p-3"
             >
               <div class="flex items-center justify-between gap-2">
-                <p class="font-medium text-sm">{{ signal.fromName || 'Неизвестный отправитель' }}</p>
-                <p class="text-xs text-muted">{{ formatDateSafe(signal.date) }}</p>
+                <p class="font-medium text-sm">
+                  {{ signal.fromName || 'Неизвестный отправитель' }}
+                </p>
+                <p class="text-xs text-muted">
+                  {{ formatDateSafe(signal.date) }}
+                </p>
               </div>
               <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                <p class="text-xs text-muted">{{ signal.chatTitle }}</p>
+                <p class="text-xs text-muted">
+                  {{ signal.chatTitle }}
+                </p>
                 <UButton
                   v-if="buildContactHref(signal.contact)"
                   :href="buildContactHref(signal.contact)"
@@ -472,7 +540,9 @@ watch(lead, (value) => {
                   size="xs"
                 />
               </div>
-              <p class="text-sm mt-2">{{ signal.text }}</p>
+              <p class="text-sm mt-2">
+                {{ signal.text }}
+              </p>
             </div>
           </div>
         </UCard>

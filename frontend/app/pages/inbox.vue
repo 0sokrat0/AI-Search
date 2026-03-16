@@ -1,11 +1,11 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: 'auth'
-})
-
 import { computed, ref, watch } from 'vue'
 import { breakpointsTailwind } from '@vueuse/core'
 import type { Mail, SignalItem } from '~/types'
+
+definePageMeta({
+  middleware: 'auth'
+})
 
 type InboxTab = 'all' | 'lead'
 type SignalCategoryFilter = 'all' | 'traders' | 'merchants' | 'ps_offers' | 'noise'
@@ -25,7 +25,7 @@ const categoryItems: Array<{ label: string, value: SignalCategoryFilter }> = [{
   label: 'Мерч',
   value: 'merchants'
 }, {
-  label: 'Трейдер',
+  label: 'Трейдер/Поиск трейдеров',
   value: 'traders'
 }, {
   label: 'Предложение ПС',
@@ -68,11 +68,11 @@ function isInboxTab(value: unknown): value is InboxTab {
 }
 
 function isCategoryFilter(value: unknown): value is SignalCategoryFilter {
-  return value === 'all' ||
-    value === 'traders' ||
-    value === 'merchants' ||
-    value === 'ps_offers' ||
-    value === 'noise'
+  return value === 'all'
+    || value === 'traders'
+    || value === 'merchants'
+    || value === 'ps_offers'
+    || value === 'noise'
 }
 
 function normalizeMailCategory(value?: string | null): Mail['category'] {
@@ -142,13 +142,13 @@ const chatItems = computed(() => {
 })
 
 const archivedCount = computed(() =>
-  allMailboxSignals.value.filter((m) => m.isIgnored).length
+  allMailboxSignals.value.filter(m => m.isIgnored).length
 )
 
 const mailboxSignals = computed<Mail[]>(() => {
   let result = allMailboxSignals.value
   if (selectedChat.value !== 'all') {
-    result = result.filter((m) => m.from.location === selectedChat.value)
+    result = result.filter(m => m.from.location === selectedChat.value)
   }
   return result
 })
@@ -157,8 +157,8 @@ const selectedSignal = ref<Mail | null>()
 
 const leadCompanyMap = ref<Record<string, string>>({})
 
-function onCompanyAssigned(payload: { signalId: string; merchantName: string }) {
-  const mail = mailboxSignals.value.find((m) => m.signalId === payload.signalId)
+function onCompanyAssigned(payload: { signalId: string, merchantName: string }) {
+  const mail = mailboxSignals.value.find(m => m.signalId === payload.signalId)
   if (mail?.leadId) {
     leadCompanyMap.value = { ...leadCompanyMap.value, [mail.leadId]: payload.merchantName }
   }
@@ -176,10 +176,10 @@ const isSignalPanelOpen = computed({
 })
 
 watch(mailboxSignals, () => {
-  if (selectedSignal.value && !mailboxSignals.value.find((s) => s.signalId === selectedSignal.value?.signalId)) {
+  if (selectedSignal.value && !mailboxSignals.value.find(s => s.signalId === selectedSignal.value?.signalId)) {
     selectedSignal.value = null
   }
-  selectedSignalIds.value = selectedSignalIds.value.filter((id) => mailboxSignals.value.some((s) => s.signalId === id))
+  selectedSignalIds.value = selectedSignalIds.value.filter(id => mailboxSignals.value.some(s => s.signalId === id))
 })
 
 watch(
@@ -230,11 +230,11 @@ function onFlagged(field: string, value: boolean) {
   const signalId = selectedSignal.value.signalId
 
   if (field === 'is_ignored' && value && !showArchived.value) {
-    const currentIndex = mailboxSignals.value.findIndex((s) => s.signalId === signalId)
+    const currentIndex = mailboxSignals.value.findIndex(s => s.signalId === signalId)
     selectedSignal.value = mailboxSignals.value[currentIndex + 1] ?? mailboxSignals.value[currentIndex - 1] ?? null
   }
 
-  const signal = signals.value.find((s) => s.id === signalId)
+  const signal = signals.value.find(s => s.id === signalId)
   if (!signal) return
 
   if (field === 'is_ignored') {
@@ -245,9 +245,9 @@ function onFlagged(field: string, value: boolean) {
 }
 
 async function onFeedback(payload: { signalId: string }) {
-  const currentIndex = mailboxSignals.value.findIndex((s) => s.signalId === payload.signalId)
+  const currentIndex = mailboxSignals.value.findIndex(s => s.signalId === payload.signalId)
   if (currentIndex !== -1) {
-    selectedSignalIds.value = selectedSignalIds.value.filter((id) => id !== payload.signalId)
+    selectedSignalIds.value = selectedSignalIds.value.filter(id => id !== payload.signalId)
     const nextSignal = mailboxSignals.value[currentIndex + 1] || mailboxSignals.value[currentIndex - 1] || null
     selectedSignal.value = nextSignal
   }
@@ -258,7 +258,7 @@ const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('lg')
 
 async function runBulkAction(action: 'archive' | 'team' | 'category') {
-  const targets = mailboxSignals.value.filter((mail) => selectedSignalIds.value.includes(mail.signalId))
+  const targets = mailboxSignals.value.filter(mail => selectedSignalIds.value.includes(mail.signalId))
   if (!targets.length) return
   bulkLoading.value = true
   try {
@@ -287,6 +287,7 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
 
 <template>
   <UDashboardPanel
+    v-if="!isMobile || !selectedSignal"
     id="inbox-1"
     :default-size="25"
     :min-size="20"
@@ -346,14 +347,32 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
       />
 
       <div v-if="selectedSignalIds.length" class="rounded-lg border border-default p-2.5 space-y-2">
-        <p class="text-xs text-muted">Выбрано сигналов: {{ selectedSignalIds.length }}</p>
+        <p class="text-xs text-muted">
+          Выбрано сигналов: {{ selectedSignalIds.length }}
+        </p>
         <div class="flex flex-wrap items-center gap-2">
-          <UButton size="xs" color="neutral" variant="soft" :loading="bulkLoading" @click="runBulkAction('archive')">Архивировать</UButton>
-          <UButton size="xs" color="info" variant="soft" :loading="bulkLoading" @click="runBulkAction('team')">Отметить как команда</UButton>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="soft"
+            :loading="bulkLoading"
+            @click="runBulkAction('archive')"
+          >
+            Архивировать
+          </UButton>
+          <UButton
+            size="xs"
+            color="info"
+            variant="soft"
+            :loading="bulkLoading"
+            @click="runBulkAction('team')"
+          >
+            Отметить как команда
+          </UButton>
           <USelect
             v-model="bulkCategory"
             :items="[
-              { label: 'Трейдер', value: 'traders' },
+              { label: 'Трейдер/Поиск трейдеров', value: 'traders' },
               { label: 'Мерчант', value: 'merchants' },
               { label: 'Предложение ПС', value: 'ps_offers' },
               { label: 'Шум', value: 'noise' }
@@ -361,7 +380,15 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
             size="xs"
             class="min-w-44"
           />
-          <UButton size="xs" color="primary" variant="soft" :loading="bulkLoading" @click="runBulkAction('category')">Проставить тег</UButton>
+          <UButton
+            size="xs"
+            color="primary"
+            variant="soft"
+            :loading="bulkLoading"
+            @click="runBulkAction('category')"
+          >
+            Проставить тег
+          </UButton>
         </div>
       </div>
     </div>
@@ -379,22 +406,41 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
         description="Сообщения из Telegram чатов появятся здесь."
       />
     </div>
-    <InboxList v-else v-model="selectedSignal" v-model:selected-ids="selectedSignalIds" :mails="mailboxSignals" class="pb-4" />
+    <InboxList
+      v-else
+      v-model="selectedSignal"
+      v-model:selected-ids="selectedSignalIds"
+      :mails="mailboxSignals"
+      class="pb-4"
+    />
   </UDashboardPanel>
 
-  <InboxMail v-if="selectedSignal" :mail="selectedSignal" @close="selectedSignal = null" @flagged="onFlagged" @feedback="onFeedback" @company-assigned="onCompanyAssigned" />
-  <div v-else class="hidden lg:flex flex-1 items-center justify-center">
+  <InboxMail
+    v-if="selectedSignal && !isMobile"
+    :mail="selectedSignal"
+    @close="selectedSignal = null"
+    @flagged="onFlagged"
+    @feedback="onFeedback"
+    @company-assigned="onCompanyAssigned"
+  />
+  <div v-if="!selectedSignal && !isMobile" class="hidden lg:flex flex-1 items-center justify-center">
     <div class="flex flex-col items-center gap-3 text-center">
       <UIcon name="i-lucide-radar" class="size-20 text-dimmed" />
-      <p class="text-sm text-muted">Выберите сигнал для просмотра деталей.</p>
+      <p class="text-sm text-muted">
+        Выберите сигнал для просмотра деталей.
+      </p>
     </div>
   </div>
 
   <ClientOnly>
-    <USlideover v-if="isMobile" v-model:open="isSignalPanelOpen">
-      <template #content>
-        <InboxMail v-if="selectedSignal" :mail="selectedSignal" @close="selectedSignal = null" @flagged="onFlagged" @feedback="onFeedback" @company-assigned="onCompanyAssigned" />
-      </template>
-    </USlideover>
+    <div v-if="isMobile && selectedSignal" class="flex-1 flex flex-col h-full overflow-hidden bg-bg">
+      <InboxMail
+        :mail="selectedSignal"
+        @close="selectedSignal = null"
+        @flagged="onFlagged"
+        @feedback="onFeedback"
+        @company-assigned="onCompanyAssigned"
+      />
+    </div>
   </ClientOnly>
 </template>

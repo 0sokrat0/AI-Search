@@ -21,26 +21,27 @@ func NewLeadHandler(uc *lead_usecase.UseCase) *LeadHandler {
 }
 
 type leadDTO struct {
-	ID                string   `json:"id"`
-	Name              string   `json:"name"`
-	Contact           string   `json:"contact"`
-	ChatTitle         string   `json:"chatTitle"`
-	SourceMessageID   string   `json:"sourceMessageId"`
-	Source            string   `json:"source"`
-	DetectedBy        string   `json:"detectedBy"`
-	SemanticDirection string   `json:"semanticDirection"`
-	SemanticCategory  string   `json:"semanticCategory"`
-	MerchantID        string   `json:"merchantId"`
-	CompanyID         string   `json:"companyId"`
-	Company           string   `json:"company"`
-	Status            string   `json:"status"`
-	Priority          string   `json:"priority"`
-	Score             float64  `json:"score"`
-	Geo               []string `json:"geo"`
-	Products          []string `json:"products"`
-	UserFeedback      *bool    `json:"userFeedback"`
-	CreatedAt         string   `json:"createdAt"`
-	UpdatedAt         string   `json:"updatedAt"`
+	ID                 string   `json:"id"`
+	Name               string   `json:"name"`
+	Contact            string   `json:"contact"`
+	ChatTitle          string   `json:"chatTitle"`
+	SourceMessageID    string   `json:"sourceMessageId"`
+	Source             string   `json:"source"`
+	DetectedBy         string   `json:"detectedBy"`
+	SemanticDirection  string   `json:"semanticDirection"`
+	SemanticCategory   string   `json:"semanticCategory"`
+	MerchantID         string   `json:"merchantId"`
+	CompanyID          string   `json:"companyId"`
+	Company            string   `json:"company"`
+	Status             string   `json:"status"`
+	Priority           string   `json:"priority"`
+	Score              float64  `json:"score"`
+	Geo                []string `json:"geo"`
+	Products           []string `json:"products"`
+	UserFeedback       *bool    `json:"userFeedback"`
+	CategoryAssignedAt string   `json:"categoryAssignedAt"`
+	CreatedAt          string   `json:"createdAt"`
+	UpdatedAt          string   `json:"updatedAt"`
 }
 
 type updateStatusRequest struct {
@@ -240,27 +241,33 @@ func toLeadDTO(l *lead.Lead) leadDTO {
 		contact = name
 	}
 
+	var catAssignedAt string
+	if l.CategoryAssignedAt() != nil {
+		catAssignedAt = l.CategoryAssignedAt().UTC().Format(time.RFC3339)
+	}
+
 	return leadDTO{
-		ID:                l.ID(),
-		Name:              name,
-		Contact:           contact,
-		ChatTitle:         l.ChatTitle(),
-		SourceMessageID:   l.MessageID(),
-		Source:            "signals_inbox",
-		DetectedBy:        "vector_sieve",
-		SemanticDirection: l.SemanticDirection(),
-		SemanticCategory:  l.SemanticCategory(),
-		MerchantID:        l.MerchantID(),
-		CompanyID:         l.MerchantID(),
-		Company:           l.MerchantID(),
-		Status:            string(l.Status()),
-		Priority:          string(l.Priority()),
-		Score:             l.Score(),
-		Geo:               l.Geo(),
-		Products:          l.Products(),
-		UserFeedback:      l.UserFeedback(),
-		CreatedAt:         l.CreatedAt().UTC().Format(time.RFC3339),
-		UpdatedAt:         l.UpdatedAt().UTC().Format(time.RFC3339),
+		ID:                 l.ID(),
+		Name:               name,
+		Contact:            contact,
+		ChatTitle:          l.ChatTitle(),
+		SourceMessageID:    l.MessageID(),
+		Source:             "signals_inbox",
+		DetectedBy:         "vector_sieve",
+		SemanticDirection:  l.SemanticDirection(),
+		SemanticCategory:   l.SemanticCategory(),
+		MerchantID:         l.MerchantID(),
+		CompanyID:          l.MerchantID(),
+		Company:            l.MerchantID(),
+		Status:             string(l.Status()),
+		Priority:           string(l.Priority()),
+		Score:              l.Score(),
+		Geo:                l.Geo(),
+		Products:           l.Products(),
+		UserFeedback:       l.UserFeedback(),
+		CategoryAssignedAt: catAssignedAt,
+		CreatedAt:          l.CreatedAt().UTC().Format(time.RFC3339),
+		UpdatedAt:          l.UpdatedAt().UTC().Format(time.RFC3339),
 	}
 }
 

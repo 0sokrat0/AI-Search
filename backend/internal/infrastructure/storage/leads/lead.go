@@ -100,7 +100,12 @@ func (r *mongoRepository) FindBySender(ctx context.Context, tenantID string, sen
 	if err != nil {
 		return nil, err
 	}
-	defer cur.Close(ctx)
+	defer func(cur *mongo.Cursor, ctx context.Context) {
+		err := cur.Close(ctx)
+		if err != nil {
+
+		}
+	}(cur, ctx)
 	return decodeCursor(ctx, cur)
 }
 
@@ -119,7 +124,12 @@ func (r *mongoRepository) List(ctx context.Context, tenantID string, f lead.List
 	if err != nil {
 		return nil, err
 	}
-	defer cur.Close(ctx)
+	defer func(cur *mongo.Cursor, ctx context.Context) {
+		err := cur.Close(ctx)
+		if err != nil {
+
+		}
+	}(cur, ctx)
 	return decodeCursor(ctx, cur)
 }
 
@@ -136,7 +146,10 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 	feedbackPipeline := mongo.Pipeline{
 		{{Key: "$match", Value: match}},
 		{{Key: "$group", Value: bson.D{
-			{Key: "_id", Value: "$user_feedback"},
+			{Key: "_id", Value: bson.D{
+				{Key: "feedback", Value: "$user_feedback"},
+				{Key: "category", Value: "$semantic_category"},
+			}},
 			{Key: "count", Value: bson.M{"$sum": 1}},
 			{Key: "avg_score", Value: bson.M{"$avg": "$score"}},
 		}}},
@@ -145,12 +158,21 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 	if err != nil {
 		return nil, err
 	}
-	defer fcur.Close(ctx)
+	defer func(fcur *mongo.Cursor, ctx context.Context) {
+		err := fcur.Close(ctx)
+		if err != nil {
 
+		}
+	}(fcur, ctx)
+
+	type feedbackID struct {
+		Feedback *bool  `bson:"feedback"`
+		Category string `bson:"category"`
+	}
 	type feedbackRow struct {
-		ID       *bool   `bson:"_id"`
-		Count    int64   `bson:"count"`
-		AvgScore float64 `bson:"avg_score"`
+		ID       feedbackID `bson:"_id"`
+		Count    int64      `bson:"count"`
+		AvgScore float64    `bson:"avg_score"`
 	}
 	var frows []feedbackRow
 	if err := fcur.All(ctx, &frows); err != nil {
@@ -164,13 +186,26 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 		stats.TotalDetected += row.Count
 		totalScore += row.AvgScore * float64(row.Count)
 		totalCount += row.Count
-		if row.ID == nil {
-			stats.Pending = row.Count
-		} else if *row.ID {
-			stats.Approved = row.Count
+
+		if row.ID.Category == "noise" || row.ID.Category == "spam" {
+			stats.Rejected += row.Count
+			// We can use the average score of noise for AvgScoreRejected
+			if stats.AvgScoreRejected == 0 {
+				stats.AvgScoreRejected = row.AvgScore
+			} else {
+				// simple weighted average for rejected
+				stats.AvgScoreRejected = (stats.AvgScoreRejected*float64(stats.Rejected-row.Count) + row.AvgScore*float64(row.Count)) / float64(stats.Rejected)
+			}
+			continue
+		}
+
+		if row.ID.Feedback == nil {
+			stats.Pending += row.Count
+		} else if *row.ID.Feedback {
+			stats.Approved += row.Count
 			stats.AvgScoreApproved = row.AvgScore
 		} else {
-			stats.Rejected = row.Count
+			stats.Rejected += row.Count
 			stats.AvgScoreRejected = row.AvgScore
 		}
 	}
@@ -201,7 +236,12 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 	if err != nil {
 		return nil, err
 	}
-	defer bcur.Close(ctx)
+	defer func(bcur *mongo.Cursor, ctx context.Context) {
+		err := bcur.Close(ctx)
+		if err != nil {
+
+		}
+	}(bcur, ctx)
 
 	type bucketRow struct {
 		ID       any   `bson:"_id"`
@@ -306,47 +346,49 @@ func decodeCursor(ctx context.Context, cur *mongo.Cursor) ([]*lead.Lead, error) 
 }
 
 type leadDoc struct {
-	ID                string    `bson:"_id"`
-	TenantID          string    `bson:"tenant_id"`
-	MessageID         string    `bson:"message_id"`
-	ChatID            int64     `bson:"chat_id"`
-	ChatTitle         string    `bson:"chat_title"`
-	SenderID          int64     `bson:"sender_id"`
-	SenderName        string    `bson:"sender_name"`
-	SenderUsername    string    `bson:"sender_username"`
-	Text              string    `bson:"text"`
-	Geo               []string  `bson:"geo"`
-	Products          []string  `bson:"products"`
-	SemanticDirection string    `bson:"semantic_direction,omitempty"`
-	SemanticCategory  string    `bson:"semantic_category,omitempty"`
-	MerchantID        string    `bson:"merchant_id"`
-	Status            string    `bson:"status"`
-	Score             float64   `bson:"score"`
-	UserFeedback      *bool     `bson:"user_feedback"`
-	CreatedAt         time.Time `bson:"created_at"`
-	UpdatedAt         time.Time `bson:"updated_at"`
+	ID                 string     `bson:"_id"`
+	TenantID           string     `bson:"tenant_id"`
+	MessageID          string     `bson:"message_id"`
+	ChatID             int64      `bson:"chat_id"`
+	ChatTitle          string     `bson:"chat_title"`
+	SenderID           int64      `bson:"sender_id"`
+	SenderName         string     `bson:"sender_name"`
+	SenderUsername     string     `bson:"sender_username"`
+	Text               string     `bson:"text"`
+	Geo                []string   `bson:"geo"`
+	Products           []string   `bson:"products"`
+	SemanticDirection  string     `bson:"semantic_direction,omitempty"`
+	SemanticCategory   string     `bson:"semantic_category,omitempty"`
+	MerchantID         string     `bson:"merchant_id"`
+	Status             string     `bson:"status"`
+	Score              float64    `bson:"score"`
+	UserFeedback       *bool      `bson:"user_feedback"`
+	CategoryAssignedAt *time.Time `bson:"category_assigned_at,omitempty"`
+	CreatedAt          time.Time  `bson:"created_at"`
+	UpdatedAt          time.Time  `bson:"updated_at"`
 }
 
 func toDoc(l *lead.Lead) bson.M {
 	return bson.M{
-		"_id":                l.ID(),
-		"tenant_id":          l.TenantID(),
-		"message_id":         l.MessageID(),
-		"chat_id":            l.ChatID(),
-		"chat_title":         l.ChatTitle(),
-		"sender_id":          l.SenderID(),
-		"sender_name":        l.SenderName(),
-		"sender_username":    l.SenderUsername(),
-		"text":               l.Text(),
-		"geo":                l.Geo(),
-		"products":           l.Products(),
-		"semantic_direction": l.SemanticDirection(),
-		"semantic_category":  l.SemanticCategory(),
-		"merchant_id":        l.MerchantID(),
-		"status":             string(l.Status()),
-		"score":              l.Score(),
-		"user_feedback":      l.UserFeedback(),
-		"updated_at":         l.UpdatedAt(),
+		"_id":                  l.ID(),
+		"tenant_id":            l.TenantID(),
+		"message_id":           l.MessageID(),
+		"chat_id":              l.ChatID(),
+		"chat_title":           l.ChatTitle(),
+		"sender_id":            l.SenderID(),
+		"sender_name":          l.SenderName(),
+		"sender_username":      l.SenderUsername(),
+		"text":                 l.Text(),
+		"geo":                  l.Geo(),
+		"products":             l.Products(),
+		"semantic_direction":   l.SemanticDirection(),
+		"semantic_category":    l.SemanticCategory(),
+		"merchant_id":          l.MerchantID(),
+		"status":               string(l.Status()),
+		"score":                l.Score(),
+		"user_feedback":        l.UserFeedback(),
+		"category_assigned_at": l.CategoryAssignedAt(),
+		"updated_at":           l.UpdatedAt(),
 	}
 }
 
@@ -362,6 +404,7 @@ func fromDoc(d leadDoc) *lead.Lead {
 		lead.Status(d.Status),
 		d.Score,
 		d.UserFeedback,
+		d.CategoryAssignedAt,
 		d.CreatedAt, d.UpdatedAt,
 	)
 }

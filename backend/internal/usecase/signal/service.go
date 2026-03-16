@@ -279,12 +279,15 @@ func toSignalDTO(m *message.Message, otherChatsCount int) DTO {
 		IsViewed:               m.IsViewed(),
 		IsNew:                  !m.IsViewed(),
 		OtherChatsCount:        otherChatsCount,
+		SemanticFlags:          nil,
 	}
 }
 
 func (s *Service) applyInboxCategory(ctx context.Context, dto *DTO) {
 	assignCategoryScores(dto)
 	assignPrimaryLabel(dto)
+
+	dto.SemanticFlags = suggestSemanticFlags(dto.Text, "", "")
 
 	if dto.IsIgnored {
 		dto.SemanticCategory = "noise"
@@ -302,6 +305,7 @@ func (s *Service) applyInboxCategory(ctx context.Context, dto *DTO) {
 			if category, ok := mapDirectionToCategory(*dto.SemanticDirection); ok && category != "noise" {
 				dto.SemanticCategory = category
 				dto.ClassificationReason = "Есть связанный лид, категория зафиксирована по semantic_direction"
+				dto.SemanticFlags = mergeSemanticFlags(dto.SemanticFlags, suggestSemanticFlags(dto.Text, category, *dto.SemanticDirection))
 				return
 			}
 		}
@@ -310,6 +314,7 @@ func (s *Service) applyInboxCategory(ctx context.Context, dto *DTO) {
 		if bestCategory != "" {
 			dto.SemanticCategory = bestCategory
 			dto.ClassificationReason = fmt.Sprintf("Есть связанный лид, используем лучшую бизнес-категорию %s (%.2f)", bestCategory, bestScore)
+			dto.SemanticFlags = mergeSemanticFlags(dto.SemanticFlags, suggestSemanticFlags(dto.Text, bestCategory, ""))
 			return
 		}
 
@@ -322,9 +327,11 @@ func (s *Service) applyInboxCategory(ctx context.Context, dto *DTO) {
 	threshold := s.categoryThreshold(ctx, bestCategory)
 	if bestCategory != "" && bestScore >= threshold {
 		dto.SemanticCategory = bestCategory
+		dto.SemanticFlags = mergeSemanticFlags(dto.SemanticFlags, suggestSemanticFlags(dto.Text, bestCategory, ""))
 		switch {
 		case dto.SemanticDirection != nil && strings.TrimSpace(*dto.SemanticDirection) != "":
 			dto.ClassificationReason = fmt.Sprintf("RAG направление: %s (%.2f >= %.2f)", *dto.SemanticDirection, bestScore, threshold)
+			dto.SemanticFlags = mergeSemanticFlags(dto.SemanticFlags, suggestSemanticFlags(dto.Text, bestCategory, *dto.SemanticDirection))
 		case dto.LeadID != nil:
 			dto.ClassificationReason = fmt.Sprintf("Есть запись лида и score %.2f >= %.2f", bestScore, threshold)
 		default:
@@ -598,6 +605,13 @@ func suggestSemanticFlags(text, category, direction string) []string {
 	}
 	if strings.Contains(lower, "предлага") || strings.Contains(lower, "offer") || strings.Contains(lower, "we provide") {
 		add("offer_intent")
+	}
+
+	// Traffic detection (Point 4)
+	if strings.Contains(lower, "трафик") || strings.Contains(lower, "traffic") ||
+		strings.Contains(lower, "реквизит") || strings.Contains(lower, "рекв") ||
+		strings.Contains(lower, "траф") {
+		add("has_traffic")
 	}
 
 	switch category {

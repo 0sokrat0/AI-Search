@@ -11,7 +11,7 @@ const { data: sidebarSignals } = useFetch<SignalItem[]>('/api/signals', {
 })
 
 const queueCount = computed(() => {
-  return (sidebarSignals.value || []).filter(s => !s.isIgnored).length
+  return (sidebarSignals.value || []).filter(s => s.isLead && !s.isIgnored).length
 })
 
 const links = computed<NavigationMenuItem[][]>(() => [[{
@@ -26,6 +26,13 @@ const links = computed<NavigationMenuItem[][]>(() => [[{
   icon: 'i-lucide-inbox',
   to: '/inbox',
   badge: queueCount.value > 0 ? String(queueCount.value) : undefined,
+  onSelect: () => {
+    open.value = false
+  }
+}, {
+  label: 'Лиды',
+  to: '/leads',
+  icon: 'i-lucide-users',
   onSelect: () => {
     open.value = false
   }
@@ -65,21 +72,41 @@ const links = computed<NavigationMenuItem[][]>(() => [[{
 const groups = computed(() => [{
   id: 'links',
   label: 'Навигация',
-  items: links.value.flat()
+  items: links.value.flat().map(item => ({
+    label: item.label,
+    icon: item.icon,
+    to: item.to,
+    onSelect: item.onSelect
+  }))
 }])
-
 </script>
 
 <template>
   <UDashboardGroup unit="rem">
-    <UDashboardSidebar id="default" v-model:open="open" collapsible resizable class="bg-elevated/25"
-      :ui="{ footer: 'lg:border-t lg:border-default' }">
-
+    <UDashboardSidebar
+      id="default"
+      v-model:open="open"
+      collapsible
+      resizable
+      class="bg-elevated/25"
+      :ui="{ footer: 'lg:border-t lg:border-default' }"
+    >
       <template #default="{ collapsed }">
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="links[0]"
+          orientation="vertical"
+          tooltip
+          popover
+        />
 
-        <UNavigationMenu :collapsed="collapsed" :items="links[0]" orientation="vertical" tooltip popover />
-
-        <UNavigationMenu :collapsed="collapsed" :items="links[1]" orientation="vertical" tooltip class="mt-auto" />
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="links[1]"
+          orientation="vertical"
+          tooltip
+          class="mt-auto"
+        />
       </template>
 
       <template #footer="{ collapsed }">

@@ -85,7 +85,9 @@ const cards = computed(() => {
       <div class="flex items-center gap-2">
         <span class="text-2xl font-semibold text-highlighted">{{ card.value }}</span>
       </div>
-      <p class="text-xs text-dimmed mt-0.5">{{ card.sub }}</p>
+      <p class="text-xs text-dimmed mt-0.5">
+        {{ card.sub }}
+      </p>
     </UPageCard>
   </UPageGrid>
 </template>

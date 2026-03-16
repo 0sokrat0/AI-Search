@@ -44,7 +44,7 @@ export function useCompanies() {
   }
 
   async function removeCompany(id: string) {
-    const next = companies.value.filter((c) => c.id !== id)
+    const next = companies.value.filter(c => c.id !== id)
     await saveCompanies(next)
   }
 

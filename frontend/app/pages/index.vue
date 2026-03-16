@@ -76,7 +76,9 @@ const candidateRate = computed(() => {
           <template #header>
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-sliders-horizontal" class="size-4 text-muted" />
-              <h3 class="font-semibold">Парсинг</h3>
+              <h3 class="font-semibold">
+                Парсинг
+              </h3>
             </div>
           </template>
 
@@ -106,7 +108,15 @@ const candidateRate = computed(() => {
               <span class="text-muted">Средний поток</span>
               <span class="font-semibold">{{ (ingestStats?.avgPerHour ?? 0).toFixed(1) }} / час</span>
             </div>
-            <UButton to="/inbox" variant="ghost" color="neutral" size="xs" icon="i-lucide-radar" label="Открыть входящие сигналы" class="w-full mt-1" />
+            <UButton
+              to="/inbox"
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              icon="i-lucide-radar"
+              label="Открыть входящие сигналы"
+              class="w-full mt-1"
+            />
           </div>
         </UCard>
       </div>
@@ -114,8 +124,16 @@ const candidateRate = computed(() => {
       <UCard class="mt-4" :ui="{ body: 'p-0' }">
         <template #header>
           <div class="flex items-center justify-between">
-            <h3 class="font-semibold">Последние сигналы</h3>
-            <UButton to="/inbox" variant="ghost" color="neutral" icon="i-lucide-arrow-up-right" label="Открыть входящие" />
+            <h3 class="font-semibold">
+              Последние сигналы
+            </h3>
+            <UButton
+              to="/inbox"
+              variant="ghost"
+              color="neutral"
+              icon="i-lucide-arrow-up-right"
+              label="Открыть входящие"
+            />
           </div>
         </template>
 

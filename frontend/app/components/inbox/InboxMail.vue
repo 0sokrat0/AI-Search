@@ -7,10 +7,10 @@ const props = defineProps<{
 }>()
 
 const emits = defineEmits<{
-  close: []
-  feedback: [payload: { id: number; signalId: string; isLead: boolean }]
-  flagged: [field: string, value: boolean]
-  'company-assigned': [payload: { signalId: string; merchantName: string }]
+  'close': []
+  'feedback': [payload: { id: number, signalId: string, isLead: boolean }]
+  'flagged': [field: string, value: boolean]
+  'company-assigned': [payload: { signalId: string, merchantName: string }]
 }>()
 
 const toast = useToast()
@@ -74,7 +74,7 @@ const leadCategoryColor: Record<string, 'primary' | 'success' | 'warning' | 'inf
 }
 const leadCategoryLabel: Record<string, string> = {
   leads: 'Лид',
-  traders: 'Трейдер',
+  traders: 'Трейдер/Поиск трейдеров',
   merchants: 'Мерчант',
   processing_requests: 'Мерчант',
   ps_offers: 'Предложение ПС',
@@ -90,16 +90,16 @@ const newCompanyName = ref('')
 const addingCompany = ref(false)
 
 const companySelectItems = computed(() =>
-  companies.value.map((c) => ({ label: c.name, value: c.id }))
+  companies.value.map(c => ({ label: c.name, value: c.id }))
 )
 
 const assignedCompanyName = computed(() =>
-  companies.value.find((c) => c.id === selectedCompanyId.value)?.name ?? null
+  companies.value.find(c => c.id === selectedCompanyId.value)?.name ?? null
 )
 
 watch([leadData, companies], ([lead]) => {
   if (!lead?.merchantId || !props.mail.leadId) return
-  const name = companies.value.find((c) => c.id === lead.merchantId)?.name
+  const name = companies.value.find(c => c.id === lead.merchantId)?.name
   if (name) {
     emits('company-assigned', { signalId: props.mail.signalId, merchantName: name })
   }
@@ -113,7 +113,7 @@ async function assignCompany(companyId: string) {
       method: 'PUT',
       body: { merchant_id: companyId }
     })
-    const name = companies.value.find((c) => c.id === companyId)?.name ?? ''
+    const name = companies.value.find(c => c.id === companyId)?.name ?? ''
     toast.add({ title: 'Компания назначена', description: name, color: 'success' })
     emits('company-assigned', { signalId: props.mail.signalId, merchantName: name })
   } catch (e: any) {
@@ -130,7 +130,7 @@ async function createCompany() {
   try {
     await addCompany(name)
     await refreshCompanies()
-    const created = [...companies.value].reverse().find((c) => c.name === name)
+    const created = [...companies.value].reverse().find(c => c.name === name)
     if (created) {
       selectedCompanyId.value = created.id
       await assignCompany(created.id)
@@ -159,7 +159,7 @@ watch(
 )
 
 const otherSignals = computed(() =>
-  senderHistory.value.filter((s) => s.id !== props.mail.signalId)
+  senderHistory.value.filter(s => s.id !== props.mail.signalId)
 )
 
 watch(
@@ -178,7 +178,7 @@ fetchLeadBrief(props.mail.leadId)
 
 const categoryLabel = computed(() => {
   switch (props.mail.category) {
-    case 'traders': return 'Трейдер'
+    case 'traders': return 'Трейдер/Поиск трейдеров'
     case 'merchants': return 'Мерчант'
     case 'ps_offers': return 'Предложение ПС'
     default: return 'Шум'
@@ -225,7 +225,7 @@ function normalizeDirection(value: string | null | undefined): string {
 const technicalDirectionLabel = computed(() => {
   const direction = normalizeDirection(props.mail.semanticDirection)
   switch (direction) {
-    case 'traders': return 'Трейдер'
+    case 'traders': return 'Трейдер/Поиск трейдеров'
     case 'merchants': return 'Мерчант'
     case 'ps_offers': return 'Предложение ПС'
     case 'noise': return 'Шум'
@@ -273,7 +273,7 @@ const historyTimeline = computed<TimelineMessage[]>(() => {
       if (Number.isNaN(ta) || Number.isNaN(tb)) return 0
       return ta - tb
     })
-    .map((signal) => ({
+    .map(signal => ({
       id: signal.id,
       role: 'assistant' as const,
       parts: [{ type: 'text' as const, text: signal.text || '—' }],
@@ -432,15 +432,33 @@ function formatDateSafe(value?: string | null): string {
       <div class="flex items-start gap-3">
         <UAvatar :alt="mail.from.name" size="xl" />
         <div class="min-w-0 flex-1">
-          <p class="font-semibold text-highlighted truncate">{{ mail.from.name }}</p>
-          <p class="text-muted text-sm truncate">{{ mail.from.email }}</p>
-          <p class="text-xs text-dimmed mt-0.5 truncate">{{ mail.from.location }}</p>
+          <p class="font-semibold text-highlighted truncate">
+            {{ mail.from.name }}
+          </p>
+          <p class="text-muted text-sm truncate">
+            {{ mail.from.email }}
+          </p>
+          <p class="text-xs text-dimmed mt-0.5 truncate">
+            {{ mail.from.location }}
+          </p>
         </div>
-        <p class="text-xs text-muted shrink-0">{{ formatDateSafe(mail.date) }}</p>
+        <p class="text-xs text-muted shrink-0">
+          {{ formatDateSafe(mail.date) }}
+        </p>
       </div>
 
       <div class="flex flex-wrap items-center gap-1.5">
-        <UBadge :color="categoryColor" variant="soft" size="xs">{{ categoryLabel }}</UBadge>
+        <UBadge :color="categoryColor" variant="soft" size="xs">
+          {{ categoryLabel }}
+        </UBadge>
+        <UBadge
+          v-if="mail.semanticFlags?.includes('has_traffic')"
+          icon="i-lucide-check-circle-2"
+          label="Предлагают трафик"
+          color="success"
+          variant="subtle"
+          size="xs"
+        />
         <UBadge
           v-if="mail.isDm"
           icon="i-heroicons-envelope"
@@ -510,14 +528,18 @@ function formatDateSafe(value?: string | null): string {
               color="neutral"
               variant="outline"
               size="xs"
-            >{{ g }}</UBadge>
+            >
+              {{ g }}
+            </UBadge>
             <UBadge
               v-for="p in leadData.products"
               :key="p"
               color="primary"
               variant="outline"
               size="xs"
-            >{{ p }}</UBadge>
+            >
+              {{ p }}
+            </UBadge>
           </div>
         </div>
 
@@ -588,7 +610,9 @@ function formatDateSafe(value?: string | null): string {
     </div>
 
     <div class="flex-1 p-4 sm:p-6 overflow-y-auto">
-      <p class="whitespace-pre-wrap text-sm leading-relaxed">{{ mail.body }}</p>
+      <p class="whitespace-pre-wrap text-sm leading-relaxed">
+        {{ mail.body }}
+      </p>
 
       <template v-if="otherSignals.length > 0">
         <UCard
@@ -710,7 +734,7 @@ function formatDateSafe(value?: string | null): string {
 
         <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
           <UButton
-            label="Трейдер"
+            label="Трейдер/Поиск трейдеров"
             color="info"
             variant="soft"
             :loading="categoryFeedbackLoading"

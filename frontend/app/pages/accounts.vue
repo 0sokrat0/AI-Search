@@ -290,8 +290,12 @@ onUnmounted(() => {
       <div class="flex flex-col gap-4 sm:gap-6 lg:gap-12 w-full lg:max-w-5xl mx-auto">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h1 class="text-2xl font-bold">Аккаунты Telegram</h1>
-            <p class="text-sm text-muted">Управление сессиями для сбора сигналов.</p>
+            <h1 class="text-2xl font-bold">
+              Аккаунты Telegram
+            </h1>
+            <p class="text-sm text-muted">
+              Управление сессиями для сбора сигналов.
+            </p>
           </div>
 
           <UButton
@@ -397,7 +401,9 @@ onUnmounted(() => {
     <template #body>
       <div class="space-y-6">
         <div class="space-y-2">
-          <p class="text-sm font-medium">Способ входа</p>
+          <p class="text-sm font-medium">
+            Способ входа
+          </p>
           <div class="grid grid-cols-2 gap-2">
             <UButton
               label="QR-код"
@@ -419,27 +425,61 @@ onUnmounted(() => {
         </div>
 
         <UFormField v-if="newAccount.method === 'code'" label="Номер телефона">
-          <UInput v-model="newAccount.phone" placeholder="+7..." icon="i-lucide-phone" class="w-full" />
-          <template #help>В международном формате, например +79991234567</template>
+          <UInput
+            v-model="newAccount.phone"
+            placeholder="+7..."
+            icon="i-lucide-phone"
+            class="w-full"
+          />
+          <template #help>
+            В международном формате, например +79991234567
+          </template>
         </UFormField>
 
         <UFormField label="2FA пароль" required>
-          <UInput v-model="newAccount.password" type="password" placeholder="Облачный пароль Telegram" icon="i-lucide-lock" class="w-full" />
-          <template #help>Обязательное поле. Если Telegram запросит 2FA, пароль отправится автоматически.</template>
+          <UInput
+            v-model="newAccount.password"
+            type="password"
+            placeholder="Облачный пароль Telegram"
+            icon="i-lucide-lock"
+            class="w-full"
+          />
+          <template #help>
+            Обязательное поле. Если Telegram запросит 2FA, пароль отправится автоматически.
+          </template>
         </UFormField>
 
         <UFormField label="Прокси">
-          <UInput v-model="newAccount.proxy" placeholder="socks5://user:pass@host:port" icon="i-lucide-shield" class="w-full font-mono text-sm" />
-          <template #help>SOCKS5 или MTProxy: <code>mtproto://host:port?secret=dd...</code></template>
+          <UInput
+            v-model="newAccount.proxy"
+            placeholder="socks5://user:pass@host:port"
+            icon="i-lucide-shield"
+            class="w-full font-mono text-sm"
+          />
+          <template #help>
+            SOCKS5 или MTProxy: <code>mtproto://host:port?secret=dd...</code>
+          </template>
         </UFormField>
 
         <UFormField label="Резервный прокси">
-          <UInput v-model="newAccount.proxy_fallback" placeholder="mtproto://host:port?secret=dd..." icon="i-lucide-shield-check" class="w-full font-mono text-sm" />
-          <template #help>Используется автоматически при недоступности основного прокси.</template>
+          <UInput
+            v-model="newAccount.proxy_fallback"
+            placeholder="mtproto://host:port?secret=dd..."
+            icon="i-lucide-shield-check"
+            class="w-full font-mono text-sm"
+          />
+          <template #help>
+            Используется автоматически при недоступности основного прокси.
+          </template>
         </UFormField>
 
         <div class="flex justify-end gap-3 mt-6">
-          <UButton label="Отмена" color="neutral" variant="ghost" @click="isAddModalOpen = false" />
+          <UButton
+            label="Отмена"
+            color="neutral"
+            variant="ghost"
+            @click="isAddModalOpen = false"
+          />
           <UButton
             :label="newAccount.method === 'qr' ? 'Создать и получить QR' : 'Создать и запросить код'"
             color="primary"
@@ -455,7 +495,9 @@ onUnmounted(() => {
   <UModal v-model:open="isAuthModalOpen" :title="`Авторизация ${currentAuthAccount?.phone.startsWith('pending_qr') ? 'по QR-коду' : currentAuthAccount?.phone}`" prevent-close>
     <template #body>
       <div v-if="authStep === 'method'" class="py-4 space-y-4">
-        <p class="text-sm">Выберите удобный способ входа в Telegram:</p>
+        <p class="text-sm">
+          Выберите удобный способ входа в Telegram:
+        </p>
         <div class="grid grid-cols-2 gap-4">
           <UButton
             label="QR-код"
@@ -483,25 +525,64 @@ onUnmounted(() => {
           Откройте Telegram -> Настройки -> Устройства -> Подключить устройство
         </p>
         <div class="bg-white p-4 rounded-xl border border-gray-200">
-          <img v-if="qrUrl" :src="`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(qrUrl)}`" class="size-64" alt="QR" />
+          <img
+            v-if="qrUrl"
+            :src="`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(qrUrl)}`"
+            class="size-64"
+            alt="QR"
+          >
           <div v-else class="size-64 flex items-center justify-center">
             <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
           </div>
         </div>
-        <p class="text-xs text-muted">Код обновится автоматически, как только Telegram его сгенерирует.</p>
-        <UButton label="Я отсканировал" color="primary" class="w-full" @click="isAuthModalOpen = false; refresh()" />
+        <p class="text-xs text-muted">
+          Код обновится автоматически, как только Telegram его сгенерирует.
+        </p>
+        <UButton
+          label="Я отсканировал"
+          color="primary"
+          class="w-full"
+          @click="isAuthModalOpen = false; refresh()"
+        />
       </div>
 
       <div v-else-if="authStep === 'code'" class="space-y-4 py-4">
-        <p class="text-sm">Введите 5-значный код подтверждения:</p>
-        <UInput v-model="otpCode" placeholder="12345" size="lg" class="text-center font-mono tracking-widest" />
-        <UButton label="Продолжить" color="primary" block :loading="loading" @click="submitCode" />
+        <p class="text-sm">
+          Введите 5-значный код подтверждения:
+        </p>
+        <UInput
+          v-model="otpCode"
+          placeholder="12345"
+          size="lg"
+          class="text-center font-mono tracking-widest"
+        />
+        <UButton
+          label="Продолжить"
+          color="primary"
+          block
+          :loading="loading"
+          @click="submitCode"
+        />
       </div>
 
       <div v-else-if="authStep === 'password'" class="space-y-4 py-4">
-        <p class="text-sm text-warning">На аккаунте включен 2FA. Введите облачный пароль:</p>
-        <UInput v-model="password" type="password" placeholder="Ваш пароль" size="lg" icon="i-lucide-lock" />
-        <UButton label="Войти" color="primary" block :loading="loading" @click="() => submitPassword()" />
+        <p class="text-sm text-warning">
+          На аккаунте включен 2FA. Введите облачный пароль:
+        </p>
+        <UInput
+          v-model="password"
+          type="password"
+          placeholder="Ваш пароль"
+          size="lg"
+          icon="i-lucide-lock"
+        />
+        <UButton
+          label="Войти"
+          color="primary"
+          block
+          :loading="loading"
+          @click="() => submitPassword()"
+        />
       </div>
     </template>
   </UModal>

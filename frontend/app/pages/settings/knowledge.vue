@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import type { KnowledgeImportResult } from '~/types'
+
 definePageMeta({
   middleware: 'auth'
 })
-
-import type { KnowledgeImportResult } from '~/types'
 
 const toast = useToast()
 const auth = useAuthStore()

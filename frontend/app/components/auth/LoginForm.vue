@@ -71,22 +71,48 @@ async function handleLogin(event: FormSubmitEvent<Schema>) {
     <UCard>
       <UForm :state="state" :schema="schema" @submit="handleLogin">
         <UFormField label="Почта" name="email" class="mb-4">
-          <UInput class="w-full" v-model="state.email" placeholder="admin@example.com" icon="i-lucide-mail" autocomplete="email"
-            :disabled="loading" size="lg" />
+          <UInput
+            v-model="state.email"
+            class="w-full"
+            placeholder="admin@example.com"
+            icon="i-lucide-mail"
+            autocomplete="email"
+            :disabled="loading"
+            size="lg"
+          />
         </UFormField>
 
         <UFormField label="Пароль" name="password" class="mb-4">
-          <UInput class="w-full" v-model="state.password" type="password" placeholder="••••••••" icon="i-lucide-lock"
-            autocomplete="current-password" :disabled="loading" size="lg" />
+          <UInput
+            v-model="state.password"
+            class="w-full"
+            type="password"
+            placeholder="••••••••"
+            icon="i-lucide-lock"
+            autocomplete="current-password"
+            :disabled="loading"
+            size="lg"
+          />
         </UFormField>
 
-        <UButton type="submit" color="primary" size="lg" block :loading="loading">
+        <UButton
+          type="submit"
+          color="primary"
+          size="lg"
+          block
+          :loading="loading"
+        >
           Войти
         </UButton>
       </UForm>
 
       <template #footer>
-        <UAlert v-if="error" color="error" variant="soft" :title="error" />
+        <UAlert
+          v-if="error"
+          color="error"
+          variant="soft"
+          :title="error"
+        />
       </template>
     </UCard>
 

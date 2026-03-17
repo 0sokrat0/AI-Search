@@ -54,6 +54,19 @@ const { data: leadsRaw, isPending } = useAuthQuery<Lead[]>(
 )
 const data = computed(() => leadsRaw.value ?? [])
 
+const { data: leadStats } = useAuthQuery<LeadStats>(
+  ['lead-stats'],
+  () => $fetch<LeadStats>('/api/leads/stats', { query: { days: 30 } }),
+  { refetchInterval: 60_000 }
+)
+
+const statsDisplay = computed(() => [
+  { label: 'Сигналов обнаружено', value: leadStats.value?.totalDetected ?? 0, icon: 'i-lucide-radar', color: 'primary' },
+  { label: 'Лидов подтверждено', value: leadStats.value?.approved ?? 0, icon: 'i-lucide-check-circle', color: 'success' },
+  { label: 'Спорные сигналы', value: leadStats.value?.pending ?? 0, icon: 'i-lucide-help-circle', color: 'warning' },
+  { label: 'Ложных срабатываний', value: leadStats.value?.rejected ?? 0, icon: 'i-lucide-x-circle', color: 'error' }
+])
+
 const scopedLeads = computed(() => {
   if (leadScope.value === 'radar') {
     return data.value.filter(l => l.status === 'detected' || l.status === 'confirmed' || l.status === 'controversial' || l.status === 'false_positive' || l.status === 'new')
@@ -286,7 +299,7 @@ const columns: TableColumn<GroupedLead>[] = [
       const contact = row.original.contact || '—'
       const href = buildContactHref(row.original.contact)
       return h('div', { class: 'flex items-center gap-1.5' }, [
-        h('span', contact),
+        h('span', { class: 'truncate max-w-24 text-xs' }, contact),
         href
           ? h(UButton, {
               icon: 'i-lucide-send',
@@ -304,6 +317,9 @@ const columns: TableColumn<GroupedLead>[] = [
     accessorKey: 'chatTitle',
     header: 'Чат',
     cell: ({ row }) => {
+      if (leadScope.value === 'radar') {
+        return h('span', { class: 'truncate max-w-24 text-xs text-muted' }, row.original.chatTitle || '—')
+      }
       const grouped = row.original as GroupedLead
       const titles = grouped.chatTitles?.length ? grouped.chatTitles : [row.original.chatTitle].filter(Boolean)
       if (!titles.length) return '—'
@@ -341,6 +357,7 @@ const columns: TableColumn<GroupedLead>[] = [
     id: 'nextAction',
     header: 'Следующий шаг',
     cell: ({ row }) => {
+      if (leadScope.value === 'radar') return null
       return h(UBadge, { color: 'neutral', variant: 'subtle' }, () => nextActionLabel(row.original.status))
     }
   },
@@ -356,17 +373,26 @@ const columns: TableColumn<GroupedLead>[] = [
   {
     accessorKey: 'signalsCount',
     header: 'Сигналы',
-    cell: ({ row }) => row.original.signalsCount ?? 1
+    cell: ({ row }) => {
+      if (leadScope.value === 'radar') return null
+      return row.original.signalsCount ?? 1
+    }
   },
   {
     accessorKey: 'geo',
     header: 'Гео',
-    cell: ({ row }) => (row.original.geo ?? []).join(', ')
+    cell: ({ row }) => {
+      if (leadScope.value === 'radar') return null
+      return (row.original.geo ?? []).join(', ')
+    }
   },
   {
     accessorKey: 'lastSeenAt',
     header: 'Последний',
-    cell: ({ row }) => formatLastSeen(row.original.lastSeenAt)
+    cell: ({ row }) => {
+      if (leadScope.value === 'radar') return null
+      return formatLastSeen(row.original.lastSeenAt)
+    }
   },
   {
     id: 'actions',
@@ -544,6 +570,20 @@ function exportCSV() {
       </UDashboardNavbar>
     </template>
     <template #body>
+      <div v-if="leadScope === 'radar'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div
+          v-for="stat in statsDisplay"
+          :key="stat.label"
+          class="flex items-center gap-3 p-4 rounded-lg border border-default bg-elevated"
+        >
+          <UIcon :name="stat.icon" :class="[`w-8 h-8`, `text-${stat.color}`]" />
+          <div>
+            <p class="text-xs text-muted">{{ stat.label }}</p>
+            <p class="text-xl font-bold font-mono">{{ stat.value }}</p>
+          </div>
+        </div>
+      </div>
+
       <div class="flex flex-wrap items-center justify-between gap-1.5">
         <UInput
           v-model="contact"
@@ -563,7 +603,31 @@ function exportCSV() {
             class="min-w-32"
           />
 
+          <UButtonGroup v-if="leadScope === 'radar'" size="sm">
+            <UButton
+              :variant="statusFilter === 'all' ? 'solid' : 'ghost'"
+              label="Все"
+              color="neutral"
+              @click="statusFilter = 'all'"
+            />
+            <UButton
+              :variant="statusFilter === 'confirmed' ? 'solid' : 'ghost'"
+              label="Продвинутые"
+              color="success"
+              icon="i-lucide-check-check"
+              @click="statusFilter = 'confirmed'"
+            />
+            <UButton
+              :variant="statusFilter === 'false_positive' ? 'solid' : 'ghost'"
+              label="Забракованные"
+              color="error"
+              icon="i-lucide-x-circle"
+              @click="statusFilter = 'false_positive'"
+            />
+          </UButtonGroup>
+
           <USelect
+            v-if="leadScope !== 'radar'"
             v-model="categoryFilter"
             :items="[
               { label: 'Все типы сигналов', value: 'all' },

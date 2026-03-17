@@ -301,124 +301,87 @@ watch(lead, (value) => {
           <template #header>
             <div class="flex items-center justify-between gap-2">
               <h3 class="font-semibold">
-                Это целевой лид?
+                Квалификация лида
               </h3>
-              <UBadge
-                v-if="qualificationState === 'lead'"
-                color="success"
-                variant="soft"
-                icon="i-lucide-check-circle"
-              >
-                Подтверждён как лид
-              </UBadge>
-              <UBadge
-                v-else-if="qualificationState === 'not-lead'"
-                color="neutral"
-                variant="soft"
-                icon="i-lucide-x-circle"
-              >
-                Не является лидом
-              </UBadge>
-              <UBadge
-                v-else
-                color="warning"
-                variant="soft"
-                icon="i-lucide-circle-dashed"
-              >
-                Не оценено
-              </UBadge>
+              <div class="flex items-center gap-2">
+                <UBadge
+                  v-if="qualificationState === 'lead'"
+                  color="success"
+                  variant="soft"
+                  icon="i-lucide-check-circle"
+                >
+                  Подтверждён
+                </UBadge>
+                <UBadge
+                  v-else-if="qualificationState === 'not-lead'"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-x-circle"
+                >
+                  Не лид
+                </UBadge>
+                <UBadge
+                  :color="categoryColor[String(lead.semanticCategory || 'leads')] || 'neutral'"
+                  variant="soft"
+                >
+                  {{ categoryLabel[String(lead.semanticCategory || 'leads')] || lead.semanticCategory }}
+                </UBadge>
+              </div>
             </div>
           </template>
 
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2 items-center">
             <UButton
               :color="qualificationState === 'lead' ? 'success' : 'neutral'"
               :variant="qualificationState === 'lead' ? 'soft' : 'outline'"
               icon="i-lucide-thumbs-up"
-              label="Да, это лид"
+              label="Это целевой лид"
               @click="approve"
             />
             <UButton
               :color="qualificationState === 'not-lead' ? 'error' : 'neutral'"
               :variant="qualificationState === 'not-lead' ? 'soft' : 'outline'"
               icon="i-lucide-thumbs-down"
-              label="Не лид / мусор"
+              label="Шум / Не лид"
               @click="reject"
             />
+            <div class="flex-1" />
+            <div class="flex items-center gap-2">
+              <USelect
+                v-model="selectedCategory"
+                :items="categorySelectItems"
+                icon="i-lucide-tag"
+                class="min-w-44"
+              />
+              <UButton
+                label="Сменить тип"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :loading="updatingCategory"
+                :disabled="selectedCategory === lead.semanticCategory"
+                @click="updateCategory"
+              />
+            </div>
           </div>
-          <p class="text-xs text-muted mt-3 flex items-center gap-1.5">
+          <p class="text-xs text-muted mt-3 flex items-center gap-1.5 border-t border-default pt-3">
             <UIcon name="i-lucide-brain-circuit" class="size-3.5 shrink-0" />
-            Ваш ответ передаётся ИИ-классификатору и улучшает точность автоматического определения
+            Ваши оценки обучают ИИ и повышают точность автоматического определения
           </p>
         </UCard>
 
         <UCard>
           <template #header>
             <div class="flex items-center justify-between gap-2">
-              <h3 class="font-semibold">
-                Классификация ИИ
+              <h3 class="font-semibold text-sm">
+                Уверенность ИИ: {{ Math.min(Math.round((lead.score ?? 0) * 100), 100) }}%
               </h3>
-              <UBadge
-                :color="categoryColor[String(lead.semanticCategory || 'leads')] || 'neutral'"
-                variant="soft"
-              >
-                {{ categoryLabel[String(lead.semanticCategory || 'leads')] || lead.semanticCategory }}
-              </UBadge>
-            </div>
-          </template>
-
-          <div class="space-y-3">
-            <!-- Confidence score bar -->
-            <div class="flex items-center gap-3">
-              <span class="text-xs text-muted w-24 shrink-0">Уверенность</span>
-              <div class="flex-1 bg-muted/30 rounded-full h-1.5">
+              <div class="flex-1 max-w-xs bg-muted/30 rounded-full h-1.5 ml-4">
                 <div
                   class="h-1.5 rounded-full bg-primary transition-all"
                   :style="`width: ${Math.min(Math.round((lead.score ?? 0) * 100), 100)}%`"
                 />
               </div>
-              <span class="text-xs font-mono w-10 text-right">
-                {{ Math.min(Math.round((lead.score ?? 0) * 100), 100) }}%
-              </span>
-            </div>
-
-            <div>
-              <p class="text-xs text-muted mb-1.5">
-                Категория определена автоматически. Если ошибочна — исправьте:
-              </p>
-              <div class="flex items-center gap-2">
-                <USelect
-                  v-model="selectedCategory"
-                  :items="categorySelectItems"
-                  icon="i-lucide-tag"
-                  class="min-w-44"
-                />
-                <UButton
-                  label="Исправить"
-                  color="neutral"
-                  variant="soft"
-                  size="sm"
-                  :loading="updatingCategory"
-                  :disabled="selectedCategory === lead.semanticCategory"
-                  @click="updateCategory"
-                />
-              </div>
-            </div>
-          </div>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between gap-2">
-              <h3 class="font-semibold">
-                Воронка CRM
-              </h3>
-              <UBadge
-                :color="statusColor[lead.status]"
-                variant="subtle"
-              >
-                {{ statusLabel[lead.status] }}
-              </UBadge>
             </div>
           </template>
 
@@ -428,13 +391,15 @@ watch(lead, (value) => {
               :key="s"
               :color="lead.status === s ? statusColor[s] : 'neutral'"
               :variant="lead.status === s ? 'soft' : 'ghost'"
-              size="sm"
+              size="xs"
               @click="setStatus(s)"
             >
               {{ statusLabel[s] }}
             </UButton>
           </div>
         </UCard>
+
+        <!-- Removed separate category card as it's merged above -->
 
         <UCard>
           <template #header>

@@ -213,10 +213,6 @@ async function deleteLead(id: string, name?: string) {
 }
 
 
-const columns: TableColumn<GroupedLead>[] = [
-  {
-    id: 'select',
-    header: ({ table }) =>
 async function updateLeadStatus(id: string, status: LeadStatus) {
   try {
     await $fetch(`/api/leads/${id}/status`, { method: 'PATCH', body: { status } })

@@ -54,38 +54,6 @@ const { data: leadsRaw, isPending } = useAuthQuery<Lead[]>(
 )
 const data = computed(() => leadsRaw.value ?? [])
 
-const { data: leadStats } = useAuthQuery<LeadStats>(
-  ['lead-stats'],
-  () => $fetch<LeadStats>('/api/leads/stats', { query: { days: 30 } }),
-  { refetchInterval: 60_000 }
-)
-
-const statsDisplay = computed(() => [
-  { label: 'Сигналов обнаружено', value: leadStats.value?.totalDetected ?? 0, icon: 'i-lucide-radar', color: 'primary' },
-  { label: 'Лидов подтверждено', value: leadStats.value?.approved ?? 0, icon: 'i-lucide-check-circle', color: 'success' },
-  { label: 'Спорные сигналы', value: leadStats.value?.pending ?? 0, icon: 'i-lucide-help-circle', color: 'warning' },
-  { label: 'Ложных срабатываний', value: leadStats.value?.rejected ?? 0, icon: 'i-lucide-x-circle', color: 'error' }
-])
-
-const chartData = computed(() => [
-  {
-    name: 'Статус сигналов',
-    detected: leadStats.value?.totalDetected ?? 0,
-    confirmed: leadStats.value?.approved ?? 0,
-    rejected: leadStats.value?.rejected ?? 0,
-    controversial: leadStats.value?.pending ?? 0
-  }
-])
-
-const chartCategories = {
-  detected: { name: 'Обнаружено (ИИ)', color: '#3b82f6' },
-  confirmed: { name: 'Подтверждено (Руками)', color: '#10b981' },
-  controversial: { name: 'Спорные (❓)', color: '#f59e0b' },
-  rejected: { name: 'Ложные (FP ❌)', color: '#ef4444' }
-}
-
-const xFormatter = (i) => chartData.value[i].name
-
 const scopedLeads = computed(() => {
   return leadScope.value === 'archive'
     ? data.value.filter(l => l.status === 'converted' || l.status === 'rejected' || l.status === 'false_positive')
@@ -549,47 +517,6 @@ function exportCSV() {
       </UDashboardNavbar>
     </template>
     <template #body>
-      <div v-if="leadScope === 'in_work'" class="space-y-6 mb-8">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Stats Grid -->
-          <div class="lg:col-span-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div
-              v-for="stat in statsDisplay"
-              :key="stat.label"
-              class="flex items-center gap-3 p-4 rounded-lg border border-default bg-elevated shadow-sm"
-            >
-              <UIcon :name="stat.icon" :class="[`w-7 h-7`, `text-${stat.color}`]" />
-              <div>
-                <p class="text-[10px] uppercase tracking-wider text-muted font-semibold">{{ stat.label }}</p>
-                <p class="text-xl font-bold font-mono">{{ stat.value }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Chart Block -->
-          <div class="lg:col-span-2 p-4 rounded-lg border border-default bg-elevated shadow-sm">
-            <div class="flex items-center justify-between mb-4">
-              <h4 class="text-xs font-bold uppercase tracking-widest text-muted flex items-center gap-2">
-                <UIcon name="i-lucide-bar-chart-3" class="w-4 h-4" />
-                Воронка классификации (30д)
-              </h4>
-            </div>
-            <div class="h-[120px] w-full">
-              <BarChart
-                :data="chartData"
-                :categories="chartCategories"
-                :height="120"
-                :xFormatter="xFormatter"
-                orientation="horizontal"
-                :showXAxis="false"
-                :showGridLine="false"
-                :showLegend="true"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="flex flex-wrap items-center justify-between gap-1.5">
         <UInput
           v-model="contact"

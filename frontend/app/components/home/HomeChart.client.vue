@@ -21,7 +21,11 @@ const { width } = useElementSize(cardRef)
 const data = ref<DataRecord[]>([])
 
 const { data: signals } = await useFetch<SignalItem[]>('/api/signals', {
-  query: { limit: 500 },
+  query: computed(() => ({
+    limit: 2000,
+    from: props.range.start.toISOString(),
+    to: props.range.end.toISOString()
+  })),
   default: () => [],
   watch: [() => props.period, () => props.range]
 })

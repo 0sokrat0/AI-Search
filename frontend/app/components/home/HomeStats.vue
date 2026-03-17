@@ -33,8 +33,9 @@ const { data: stats } = await useFetch<LeadStats>('/api/leads/stats', {
 
 const cards = computed(() => {
   const s = stats.value ?? { totalDetected: 0, approved: 0, rejected: 0, pending: 0, avgScoreRejected: 0 }
-  const approvalRate = s.totalDetected > 0
-    ? Math.round((s.approved / s.totalDetected) * 100)
+  const totalDecisions = s.approved + s.rejected
+  const approvalRate = totalDecisions > 0
+    ? Math.round((s.approved / totalDecisions) * 100)
     : 0
   return [
     {
@@ -47,7 +48,7 @@ const cards = computed(() => {
       title: 'Лидов подтверждено',
       icon: 'i-lucide-badge-check',
       value: s.approved,
-      sub: `${approvalRate}% от всех`
+      sub: totalDecisions > 0 ? `${approvalRate}% от обработанных` : '0% от всех'
     },
     {
       title: 'Ложных срабатываний',

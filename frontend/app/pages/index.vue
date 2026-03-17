@@ -110,17 +110,6 @@ const candidateRate = computed(() => {
           </div>
         </UCard>
       </div>
-
-      <UCard class="mt-4" :ui="{ body: 'p-0' }">
-        <template #header>
-          <div class="flex items-center justify-between">
-            <h3 class="font-semibold">Последние сигналы</h3>
-            <UButton to="/inbox" variant="ghost" color="neutral" icon="i-lucide-arrow-up-right" label="Открыть входящие" />
-          </div>
-        </template>
-
-        <HomeSales :period="period" :range="range" />
-      </UCard>
     </template>
   </UDashboardPanel>
 </template>

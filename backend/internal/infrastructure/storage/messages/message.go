@@ -210,6 +210,8 @@ func (r *mongoRepository) GetIngestStats(ctx context.Context, tenantID string, d
 		"tenant_id":          tenantID,
 		"created_at":         bson.M{"$gte": from},
 		"classified_as_lead": true,
+		"is_ignored":         false,
+		"similarity_score":   bson.M{"$gte": 0.70},
 	})
 	if err != nil {
 		return nil, err
@@ -346,12 +348,17 @@ func (r *mongoRepository) GetIngestStats(ctx context.Context, tenantID string, d
 		}
 	}
 
+	avgPerHour := 0.0
+	if days > 0 {
+		avgPerHour = float64(total) / float64(days*24)
+	}
+
 	stats := &message.IngestStats{
 		Period:          fmt.Sprintf("%dd", days),
 		TotalSignals:    total,
 		SignalsToday:    todayCount,
 		SignalsLastHour: lastHourCount,
-		AvgPerHour:      float64(total) / float64(days*24),
+		AvgPerHour:      avgPerHour,
 		UniqueChats:     uniqueChats,
 		UniqueSenders:   uniqueSenders,
 		LeadCandidates:  leadCandidates,

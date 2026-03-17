@@ -69,7 +69,6 @@ func (uc *UseCase) MarkControversial(ctx context.Context, tenantID, id string) (
 }
 
 func (uc *UseCase) setFeedback(ctx context.Context, tenantID, id string, good bool) (*lead.Lead, error) {
-...
 	l, err := uc.leads.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err

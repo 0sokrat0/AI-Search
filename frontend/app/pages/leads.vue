@@ -217,6 +217,28 @@ const columns: TableColumn<GroupedLead>[] = [
   {
     id: 'select',
     header: ({ table }) =>
+async function updateLeadStatus(id: string, status: LeadStatus) {
+  try {
+    await $fetch(`/api/leads/${id}/status`, { method: 'PATCH', body: { status } })
+    await queryClient.invalidateQueries({ queryKey: ['leads'] })
+    toast.add({
+      title: 'Статус обновлен',
+      description: `Лид переведен в статус "${statusLabel[status]}"`,
+      color: 'success'
+    })
+  } catch (e: any) {
+    toast.add({
+      title: 'Ошибка',
+      description: e?.message || 'Не удалось обновить статус',
+      color: 'error'
+    })
+  }
+}
+
+const columns: TableColumn<GroupedLead>[] = [
+  {
+    id: 'select',
+    header: ({ table }) =>
       h(UCheckbox, {
         'modelValue': table.getIsSomePageRowsSelected()
           ? 'indeterminate'
@@ -349,31 +371,6 @@ const columns: TableColumn<GroupedLead>[] = [
     accessorKey: 'lastSeenAt',
     header: 'Последний',
     cell: ({ row }) => formatLastSeen(row.original.lastSeenAt)
-  }
-]
-
-async function updateLeadStatus(id: string, status: LeadStatus) {
-  try {
-    await $fetch(`/api/leads/${id}/status`, { method: 'PATCH', body: { status } })
-    await queryClient.invalidateQueries({ queryKey: ['leads'] })
-    toast.add({
-      title: 'Статус обновлен',
-      description: `Лид переведен в статус "${statusLabel[status]}"`,
-      color: 'success'
-    })
-  } catch (e: any) {
-    toast.add({
-      title: 'Ошибка',
-      description: e?.message || 'Не удалось обновить статус',
-      color: 'error'
-    })
-  }
-}
-
-const columns: TableColumn<GroupedLead>[] = [
-  {
-    id: 'select',
-...
   },
   {
     id: 'actions',

@@ -11,6 +11,7 @@ type Contact struct {
 	senderUsername string
 	merchantID     string
 	isTeamMember   bool
+	isSpam         bool
 	createdAt      time.Time
 	updatedAt      time.Time
 }
@@ -33,6 +34,7 @@ func Restore(
 	name, username string,
 	merchantID string,
 	isTeamMember bool,
+	isSpam bool,
 	createdAt, updatedAt time.Time,
 ) *Contact {
 	return &Contact{
@@ -42,6 +44,7 @@ func Restore(
 		senderUsername: username,
 		merchantID:     merchantID,
 		isTeamMember:   isTeamMember,
+		isSpam:         isSpam,
 		createdAt:      createdAt,
 		updatedAt:      updatedAt,
 	}
@@ -53,6 +56,7 @@ func (c *Contact) SenderName() string     { return c.senderName }
 func (c *Contact) SenderUsername() string { return c.senderUsername }
 func (c *Contact) MerchantID() string     { return c.merchantID }
 func (c *Contact) IsTeamMember() bool     { return c.isTeamMember }
+func (c *Contact) IsSpam() bool           { return c.isSpam }
 func (c *Contact) CreatedAt() time.Time   { return c.createdAt }
 func (c *Contact) UpdatedAt() time.Time   { return c.updatedAt }
 
@@ -63,6 +67,11 @@ func (c *Contact) SetMerchant(merchantID string) {
 
 func (c *Contact) SetTeamMember(isTeam bool) {
 	c.isTeamMember = isTeam
+	c.updatedAt = time.Now()
+}
+
+func (c *Contact) SetSpam(v bool) {
+	c.isSpam = v
 	c.updatedAt = time.Now()
 }
 

@@ -86,7 +86,7 @@ func Run(ctx context.Context, cfg *config.Config, log *zap.Logger) error {
 	authHandler := v1.NewAuthHandler(authUC, userUC)
 	userHandler := v1.NewUserHandler(userUC)
 	leadHandler := v1.NewLeadHandler(leadUC)
-	signalApp := signal_usecase.NewService(messageRepo, leadRepo, leadUC, sieve, settingsStore)
+	signalApp := signal_usecase.NewService(messageRepo, contactRepo, leadRepo, leadUC, sieve, settingsStore)
 	signalHandler := v1.NewSignalHandler(signalApp)
 	settingsHandler := v1.NewSettingsHandler(settingsUC)
 	knowledgeHandler := v1.NewKnowledgeHandler(knowledge_usecase.NewImportService(sieve))

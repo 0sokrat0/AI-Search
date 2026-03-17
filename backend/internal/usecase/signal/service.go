@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"MRG/internal/domain/contact"
 	"MRG/internal/domain/lead"
 	"MRG/internal/domain/message"
 	settings_store "MRG/internal/infrastructure/storage/settings"
@@ -15,6 +16,7 @@ import (
 
 type Service struct {
 	messageRepo message.Repository
+	contactRepo contact.Repository
 	leadRepo    lead.Repository
 	leadUC      *lead_usecase.UseCase
 	sieve       lead.Sieve
@@ -23,6 +25,7 @@ type Service struct {
 
 func NewService(
 	messageRepo message.Repository,
+	contactRepo contact.Repository,
 	leadRepo lead.Repository,
 	leadUC *lead_usecase.UseCase,
 	sieve lead.Sieve,
@@ -30,6 +33,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		messageRepo: messageRepo,
+		contactRepo: contactRepo,
 		leadRepo:    leadRepo,
 		leadUC:      leadUC,
 		sieve:       sieve,
@@ -165,21 +169,61 @@ func (s *Service) FeedbackSignal(ctx context.Context, in FeedbackInput) (Feedbac
 		return FeedbackResult{}, err
 	}
 
+	score := 1.0
+	if msg.SimilarityScore() != nil {
+		score = *msg.SimilarityScore()
+	}
+
+	existing, err := s.leadRepo.FindByMessageID(ctx, in.TenantID, in.MessageID)
+	if err != nil {
+		return FeedbackResult{}, err
+	}
+
 	if isLeadForTraining {
-		existing, err := s.leadRepo.FindByMessageID(ctx, in.TenantID, in.MessageID)
-		if err != nil {
-			return FeedbackResult{}, err
-		}
+		var l *lead.Lead
 		if existing != nil {
-			leadID := existing.ID()
-			return FeedbackResult{OK: true, IsLead: true, LeadID: &leadID, SemanticFlags: flagsForTraining}, nil
+			l = existing
+			l.MarkAsConfirmed()
+		} else {
+			l, err = lead.Detect(
+				in.TenantID, msg.ID(),
+				msg.ChatID(), msg.ChatTitle(),
+				msg.SenderID(), msg.SenderName(), msg.SenderUsername(), msg.Text(),
+				score,
+			)
+			if err != nil {
+				return FeedbackResult{}, err
+			}
+			l.MarkAsConfirmed()
 		}
 
-		score := 1.0
-		if msg.SimilarityScore() != nil {
-			score = *msg.SimilarityScore()
+		if directionForTraining != "" {
+			l.SetSemanticDirection(directionForTraining)
 		}
-		l, err := lead.Detect(
+		if in.Category != "" {
+			l.SetSemanticCategory(in.Category)
+		}
+
+		var saveErr error
+		if existing != nil {
+			saveErr = s.leadRepo.Update(ctx, l)
+		} else {
+			saveErr = s.leadRepo.Save(ctx, l)
+		}
+		if saveErr != nil {
+			return FeedbackResult{}, saveErr
+		}
+		leadID := l.ID()
+		return FeedbackResult{OK: true, IsLead: true, LeadID: &leadID, SemanticFlags: flagsForTraining}, nil
+	}
+
+	// Case: isLeadForTraining = false (False Positive)
+	var l *lead.Lead
+	if existing != nil {
+		l = existing
+		l.MarkAsFalsePositive()
+	} else {
+		l, err = lead.Detect(
 			in.TenantID, msg.ID(),
 			msg.ChatID(), msg.ChatTitle(),
 			msg.SenderID(), msg.SenderName(), msg.SenderUsername(), msg.Text(),
@@ -188,32 +232,64 @@ func (s *Service) FeedbackSignal(ctx context.Context, in FeedbackInput) (Feedbac
 		if err != nil {
 			return FeedbackResult{}, err
 		}
-		if directionForTraining != "" {
-			l.SetSemanticDirection(directionForTraining)
-		}
-		if in.Category != "" {
-			l.SetSemanticCategory(in.Category)
-		}
-
-		if err := s.leadRepo.Save(ctx, l); err != nil {
-			return FeedbackResult{}, err
-		}
-		leadID := l.ID()
-		return FeedbackResult{OK: true, IsLead: true, LeadID: &leadID, SemanticFlags: flagsForTraining}, nil
+		l.MarkAsFalsePositive()
 	}
 
-	if err := s.leadRepo.DeleteByMessageID(ctx, in.TenantID, in.MessageID); err != nil {
-		return FeedbackResult{}, err
+	if directionForTraining != "" {
+		l.SetSemanticDirection(directionForTraining)
+	}
+	if in.Category != "" {
+		l.SetSemanticCategory(in.Category)
+	} else {
+		l.SetSemanticCategory("noise")
+	}
+
+	var saveErr error
+	if existing != nil {
+		saveErr = s.leadRepo.Update(ctx, l)
+	} else {
+		saveErr = s.leadRepo.Save(ctx, l)
+	}
+	if saveErr != nil {
+		return FeedbackResult{}, saveErr
 	}
 
 	return FeedbackResult{OK: true, IsLead: false, SemanticFlags: flagsForTraining}, nil
 }
 
 func (s *Service) FlagSignal(ctx context.Context, in FlagInput) error {
-	if in.Field != "is_ignored" && in.Field != "is_team_member" && in.Field != "is_viewed" {
+	if in.Field != "is_ignored" && in.Field != "is_team_member" && in.Field != "is_viewed" && in.Field != "is_spam_sender" {
 		return ErrInvalidFlagField
 	}
+	if in.Field == "is_spam_sender" {
+		return s.setSpamSender(ctx, in)
+	}
 	return s.messageRepo.SetFlag(ctx, in.TenantID, in.MessageID, in.Field, in.Value)
+}
+
+func (s *Service) setSpamSender(ctx context.Context, in FlagInput) error {
+	msg, err := s.messageRepo.FindByID(ctx, in.TenantID, in.MessageID)
+	if err != nil {
+		return err
+	}
+	if msg == nil {
+		return ErrSignalNotFound
+	}
+	if err := s.messageRepo.SetFlag(ctx, in.TenantID, in.MessageID, "is_spam_sender", in.Value); err != nil {
+		return err
+	}
+	if s.contactRepo == nil {
+		return nil
+	}
+	c, err := s.contactRepo.FindBySenderID(ctx, in.TenantID, msg.SenderID())
+	if err != nil {
+		return err
+	}
+	if c == nil {
+		c = contact.New(in.TenantID, msg.SenderID(), msg.SenderName(), msg.SenderUsername())
+	}
+	c.SetSpam(in.Value)
+	return s.contactRepo.Update(ctx, c)
 }
 
 func (s *Service) GetSenderHistory(ctx context.Context, tenantID, senderIDStr string, limit int) ([]DTO, error) {
@@ -276,6 +352,7 @@ func toSignalDTO(m *message.Message, otherChatsCount int) DTO {
 		PrimaryPercent:         0,
 		IsIgnored:              m.IsIgnored(),
 		IsTeamMember:           m.IsTeamMember(),
+		IsSpamSender:           m.IsSpamSender(),
 		IsViewed:               m.IsViewed(),
 		IsNew:                  !m.IsViewed(),
 		OtherChatsCount:        otherChatsCount,
@@ -607,11 +684,24 @@ func suggestSemanticFlags(text, category, direction string) []string {
 		add("offer_intent")
 	}
 
+	// Task 4: Search for trader / Trader
+	if strings.Contains(lower, "трейдер") || strings.Contains(lower, "trader") ||
+		strings.Contains(lower, "ищу трейдера") || strings.Contains(lower, "search trader") {
+		add("trader_search")
+	}
+
 	// Traffic detection (Point 4)
 	if strings.Contains(lower, "трафик") || strings.Contains(lower, "traffic") ||
 		strings.Contains(lower, "реквизит") || strings.Contains(lower, "рекв") ||
-		strings.Contains(lower, "траф") {
+		strings.Contains(lower, "траф") || strings.Contains(lower, "обработка") ||
+		strings.Contains(lower, "processing") {
 		add("has_traffic")
+	}
+
+	// Merchant intent hints
+	if strings.Contains(lower, "подключить") || strings.Contains(lower, "интеграция") ||
+		strings.Contains(lower, "платежка") || strings.Contains(lower, "эквайринг") {
+		add("merchant_intent")
 	}
 
 	switch category {

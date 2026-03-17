@@ -50,6 +50,7 @@ type contactDoc struct {
 	SenderUsername string    `bson:"sender_username"`
 	MerchantID     string    `bson:"merchant_id"`
 	IsTeamMember   bool      `bson:"is_team_member"`
+	IsSpam         bool      `bson:"is_spam,omitempty"`
 	CreatedAt      time.Time `bson:"created_at"`
 	UpdatedAt      time.Time `bson:"updated_at"`
 }
@@ -62,6 +63,7 @@ func toDoc(c *contact.Contact) contactDoc {
 		SenderUsername: c.SenderUsername(),
 		MerchantID:     c.MerchantID(),
 		IsTeamMember:   c.IsTeamMember(),
+		IsSpam:         c.IsSpam(),
 		CreatedAt:      c.CreatedAt(),
 		UpdatedAt:      c.UpdatedAt(),
 	}
@@ -75,6 +77,7 @@ func fromDoc(d contactDoc) *contact.Contact {
 		d.SenderUsername,
 		d.MerchantID,
 		d.IsTeamMember,
+		d.IsSpam,
 		d.CreatedAt,
 		d.UpdatedAt,
 	)

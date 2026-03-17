@@ -122,6 +122,17 @@ func (s *QdrantSieve) detectLeadMeta(ctx context.Context, text string) (detectio
 		return detectionMeta{}, nil
 	}
 
+	lower := strings.ToLower(combined)
+	// Task 2: Exclude RUB (ruble inflows)
+	if strings.Contains(lower, "rub") || strings.Contains(lower, "руб") || strings.Contains(lower, "₽") {
+		return detectionMeta{
+			isLead:            false,
+			score:             0.1,
+			semanticDirection: directionNoise,
+			semanticCategory:  categoryNoise,
+		}, nil
+	}
+
 	vec, err := s.embedder.Embed(ctx, combined)
 	if err != nil {
 		return detectionMeta{}, fmt.Errorf("embed: %w", err)
@@ -133,6 +144,27 @@ func (s *QdrantSieve) detectLeadMeta(ctx context.Context, text string) (detectio
 	}
 
 	bestCategory, bestDirection, bestScore := bestCategoryMatch(results)
+
+	// Force/Boost Merchant detection (traffic, price/service requests)
+	isMerchantHint := strings.Contains(lower, "трафик") || strings.Contains(lower, "traffic") ||
+		strings.Contains(lower, "прайс") || strings.Contains(lower, "price") ||
+		strings.Contains(lower, "подключить") || strings.Contains(lower, "интеграция") ||
+		strings.Contains(lower, "платежка") || strings.Contains(lower, "эквайринг")
+
+	// Force/Boost Trader detection
+	isTraderHint := strings.Contains(lower, "трейдер") || strings.Contains(lower, "trader") ||
+		strings.Contains(lower, "ищу трейдера") || strings.Contains(lower, "search trader")
+
+	if isMerchantHint && (bestCategory == "" || bestCategory == categoryNoise) {
+		bestCategory = categoryMerchants
+		bestDirection = directionMerchant
+		bestScore = 0.9
+	} else if isTraderHint && (bestCategory == "" || bestCategory == categoryNoise) {
+		bestCategory = categoryTraders
+		bestDirection = directionTrader
+		bestScore = 0.9
+	}
+
 	if bestCategory == "" {
 		return detectionMeta{}, nil
 	}

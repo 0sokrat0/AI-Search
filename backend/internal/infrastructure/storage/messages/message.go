@@ -38,6 +38,7 @@ type messageDoc struct {
 	CreatedAt         time.Time  `bson:"created_at"`
 	IsIgnored         bool       `bson:"is_ignored,omitempty"`
 	IsTeamMember      bool       `bson:"is_team_member,omitempty"`
+	IsSpamSender      bool       `bson:"is_spam_sender,omitempty"`
 	IsDM              bool       `bson:"is_dm,omitempty"`
 	IsViewed          bool       `bson:"is_viewed,omitempty"`
 	ViewedAt          *time.Time `bson:"viewed_at,omitempty"`
@@ -364,7 +365,7 @@ func (r *mongoRepository) GetIngestStats(ctx context.Context, tenantID string, d
 }
 
 func (r *mongoRepository) SetFlag(ctx context.Context, tenantID, id, field string, value bool) error {
-	if field != "is_ignored" && field != "is_team_member" && field != "is_viewed" {
+	if field != "is_ignored" && field != "is_team_member" && field != "is_viewed" && field != "is_spam_sender" {
 		return errors.New("unknown flag field: " + field)
 	}
 	set := bson.M{field: value}
@@ -459,6 +460,7 @@ func toDoc(m *message.Message) bson.M {
 		"media_type":         string(m.MediaType()),
 		"is_ignored":         m.IsIgnored(),
 		"is_team_member":     m.IsTeamMember(),
+		"is_spam_sender":     m.IsSpamSender(),
 		"is_dm":              m.IsDM(),
 		"is_viewed":          m.IsViewed(),
 		"viewed_at":          m.ViewedAt(),
@@ -477,7 +479,7 @@ func fromDoc(d messageDoc) *message.Message {
 		d.Text,
 		message.MediaType(d.MediaType),
 		d.CreatedAt,
-		d.IsIgnored, d.IsTeamMember, d.IsDM, d.IsViewed, d.ViewedAt,
+		d.IsIgnored, d.IsTeamMember, d.IsSpamSender, d.IsDM, d.IsViewed, d.ViewedAt,
 		d.SimilarityScore, d.ClassifiedAsLead, d.SemanticDirection,
 		message.Metadata{},
 	)

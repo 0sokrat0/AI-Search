@@ -37,6 +37,7 @@ type Message struct {
 	createdAt         time.Time
 	isIgnored         bool
 	isTeamMember      bool
+	isSpamSender      bool
 	isDM              bool
 	isViewed          bool
 	viewedAt          *time.Time
@@ -86,7 +87,7 @@ func Restore(
 	senderName, senderUsername, text string,
 	mediaType MediaType,
 	createdAt time.Time,
-	isIgnored, isTeamMember, isDM, isViewed bool,
+	isIgnored, isTeamMember, isSpamSender, isDM, isViewed bool,
 	viewedAt *time.Time,
 	similarityScore *float64,
 	classifiedAsLead *bool,
@@ -107,6 +108,7 @@ func Restore(
 		createdAt:         createdAt,
 		isIgnored:         isIgnored,
 		isTeamMember:      isTeamMember,
+		isSpamSender:      isSpamSender,
 		isDM:              isDM,
 		isViewed:          isViewed,
 		viewedAt:          viewedAt,
@@ -134,6 +136,7 @@ func (m *Message) CreatedAt() time.Time       { return m.createdAt }
 func (m *Message) HasMedia() bool             { return m.mediaType != MediaTypeNone }
 func (m *Message) IsIgnored() bool            { return m.isIgnored }
 func (m *Message) IsTeamMember() bool         { return m.isTeamMember }
+func (m *Message) IsSpamSender() bool         { return m.isSpamSender }
 func (m *Message) IsViewed() bool             { return m.isViewed }
 func (m *Message) ViewedAt() *time.Time       { return m.viewedAt }
 func (m *Message) SimilarityScore() *float64  { return m.similarityScore }
@@ -142,8 +145,9 @@ func (m *Message) SemanticDirection() *string { return m.semanticDirection }
 func (m *Message) Metadata() Metadata         { return m.metadata }
 
 func (m *Message) IsDM() bool           { return m.isDM }
-func (m *Message) SetIgnored(v bool)    { m.isIgnored = v }
-func (m *Message) SetTeamMember(v bool) { m.isTeamMember = v }
+func (m *Message) SetIgnored(v bool)     { m.isIgnored = v }
+func (m *Message) SetTeamMember(v bool)  { m.isTeamMember = v }
+func (m *Message) SetSpamSender(v bool)  { m.isSpamSender = v }
 func (m *Message) SetIsDM(v bool)       { m.isDM = v }
 func (m *Message) SetViewed(v bool) {
 	m.isViewed = v

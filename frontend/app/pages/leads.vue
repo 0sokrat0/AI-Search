@@ -3,7 +3,6 @@ import type { TableColumn } from '@nuxt/ui'
 import { upperFirst } from 'scule'
 import { getPaginationRowModel } from '@tanstack/table-core'
 import { formatDistanceToNow, isValid } from 'date-fns'
-import type { Row } from '@tanstack/table-core'
 import type { Lead, LeadStatus } from '~/types'
 
 interface GroupedLead extends Lead {
@@ -38,7 +37,7 @@ const columnVisibility = ref<Record<string, boolean>>({
 const rowSelection = ref({})
 const statusFilter = ref('all')
 const categoryFilter = ref<'all' | 'leads' | 'traders' | 'merchants' | 'ps_offers' | 'noise'>('all')
-const leadScope = ref<'in_work' | 'archive'>('in_work')
+const leadScope = ref<'in_work' | 'archive' | 'radar'>('in_work')
 const bulkLoading = ref(false)
 const bulkStatus = ref<LeadStatus>('qualified')
 const bulkCompanyId = ref<string>('')
@@ -56,12 +55,22 @@ const { data: leadsRaw, isPending } = useAuthQuery<Lead[]>(
 const data = computed(() => leadsRaw.value ?? [])
 
 const scopedLeads = computed(() => {
+  if (leadScope.value === 'radar') {
+    return data.value.filter(l => l.status === 'detected' || l.status === 'confirmed' || l.status === 'controversial' || l.status === 'false_positive' || l.status === 'new')
+  }
   return leadScope.value === 'archive'
-    ? data.value.filter(l => l.status === 'converted' || l.status === 'rejected')
-    : data.value.filter(l => l.status === 'new' || l.status === 'contacted' || l.status === 'qualified')
+    ? data.value.filter(l => l.status === 'converted' || l.status === 'rejected' || l.status === 'false_positive')
+    : data.value.filter(l => l.status === 'new' || l.status === 'contacted' || l.status === 'qualified' || l.status === 'detected' || l.status === 'confirmed' || l.status === 'controversial')
 })
 
 const groupedScopedLeads = computed<GroupedLead[]>(() => {
+  if (leadScope.value === 'radar') {
+    return scopedLeads.value.map(l => ({
+      ...l,
+      chatTitles: l.chatTitle ? [l.chatTitle] : [],
+      allIds: [l.id]
+    }))
+  }
   const groups = new Map<string, GroupedLead>()
 
   for (const lead of scopedLeads.value) {
@@ -106,8 +115,12 @@ function formatLastSeen(value?: string) {
   return formatDistanceToNow(d, { addSuffix: true })
 }
 
-const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral'> = {
+const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'info'> = {
   new: 'primary',
+  detected: 'info',
+  confirmed: 'success',
+  controversial: 'warning',
+  false_positive: 'error',
   contacted: 'warning',
   qualified: 'success',
   converted: 'success',
@@ -116,6 +129,10 @@ const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error
 
 const statusLabel: Record<LeadStatus, string> = {
   new: 'Новый',
+  detected: 'Обнаружен',
+  confirmed: 'Подтвержден',
+  controversial: 'Спорный',
+  false_positive: 'Ложный (FP)',
   contacted: 'Первичный контакт',
   qualified: 'В работе',
   converted: 'Сделка / подключен',
@@ -153,7 +170,14 @@ function buildContactHref(raw?: string | null): string {
 function nextActionLabel(status: LeadStatus): string {
   switch (status) {
     case 'new':
-      return 'Связаться'
+    case 'detected':
+      return 'Квалифицировать'
+    case 'confirmed':
+      return 'В работу'
+    case 'controversial':
+      return 'Перепроверить'
+    case 'false_positive':
+      return 'В корзину'
     case 'contacted':
       return 'Уточнить запрос'
     case 'qualified':
@@ -188,50 +212,6 @@ async function deleteLead(id: string, name?: string) {
   }
 }
 
-function getRowItems(row: Row<GroupedLead>) {
-  return [
-    {
-      type: 'label',
-      label: 'Действия с лидом'
-    },
-    {
-      label: 'Скопировать ID лида',
-      icon: 'i-lucide-copy',
-      onSelect() {
-        navigator.clipboard.writeText(row.original.id)
-        toast.add({
-          title: 'Скопировано',
-          description: 'ID лида скопирован в буфер обмена'
-        })
-      }
-    },
-    {
-      type: 'separator'
-    },
-    {
-      label: 'Открыть профиль лида',
-      icon: 'i-lucide-user-search',
-      onSelect() {
-        openLead(row.original.id)
-      }
-    },
-    {
-      label: 'Открыть связанные сигналы',
-      icon: 'i-lucide-link'
-    },
-    {
-      type: 'separator'
-    },
-    {
-      label: 'Удалить из CRM',
-      icon: 'i-lucide-trash-2',
-      color: 'error',
-      async onSelect() {
-        await deleteLead(row.original.id, row.original.name)
-      }
-    }
-  ]
-}
 
 const columns: TableColumn<GroupedLead>[] = [
   {
@@ -275,6 +255,11 @@ const columns: TableColumn<GroupedLead>[] = [
         ])
       ])
     }
+  },
+  {
+    accessorKey: 'text',
+    header: 'Сигнал',
+    cell: ({ row }) => h('p', { class: 'text-xs text-muted line-clamp-2 max-w-xs break-words' }, row.original.text)
   },
   {
     accessorKey: 'contact',
@@ -364,29 +349,89 @@ const columns: TableColumn<GroupedLead>[] = [
     accessorKey: 'lastSeenAt',
     header: 'Последний',
     cell: ({ row }) => formatLastSeen(row.original.lastSeenAt)
+  }
+]
+
+async function updateLeadStatus(id: string, status: LeadStatus) {
+  try {
+    await $fetch(`/api/leads/${id}/status`, { method: 'PATCH', body: { status } })
+    await queryClient.invalidateQueries({ queryKey: ['leads'] })
+    toast.add({
+      title: 'Статус обновлен',
+      description: `Лид переведен в статус "${statusLabel[status]}"`,
+      color: 'success'
+    })
+  } catch (e: any) {
+    toast.add({
+      title: 'Ошибка',
+      description: e?.message || 'Не удалось обновить статус',
+      color: 'error'
+    })
+  }
+}
+
+const columns: TableColumn<GroupedLead>[] = [
+  {
+    id: 'select',
+...
   },
   {
     id: 'actions',
     cell: ({ row }) => h(
       'div',
-      { class: 'text-right' },
-      h(
-        UDropdownMenu,
-        {
-          content: { align: 'end' },
-          items: getRowItems(row)
-        },
-        () => h(UButton, {
-          icon: 'i-lucide-ellipsis-vertical',
+      { class: 'flex items-center justify-end gap-1' },
+      [
+        leadScope.value === 'radar' ? h('div', { class: 'flex gap-1 mr-2' }, [
+          h(UButton, {
+            icon: 'i-lucide-check',
+            color: 'success',
+            variant: 'ghost',
+            size: 'sm',
+            square: true,
+            title: 'Подтвердить (Confirmed)',
+            onClick: () => updateLeadStatus(row.original.id, 'confirmed')
+          }),
+          h(UButton, {
+            icon: 'i-lucide-help-circle',
+            color: 'warning',
+            variant: 'ghost',
+            size: 'sm',
+            square: true,
+            title: 'Спорный (Controversial)',
+            onClick: () => updateLeadStatus(row.original.id, 'controversial')
+          }),
+          h(UButton, {
+            icon: 'i-lucide-x',
+            color: 'error',
+            variant: 'ghost',
+            size: 'sm',
+            square: true,
+            title: 'Ложный (False Positive)',
+            onClick: () => updateLeadStatus(row.original.id, 'false_positive')
+          })
+        ]) : null,
+        h(UButton, {
+          icon: 'i-lucide-eye',
           color: 'neutral',
           variant: 'ghost',
-          class: 'ml-auto'
+          size: 'sm',
+          square: true,
+          title: 'Открыть профиль лида',
+          onClick: () => openLead(row.original.id)
+        }),
+        h(UButton, {
+          icon: 'i-lucide-trash-2',
+          color: 'error',
+          variant: 'ghost',
+          size: 'sm',
+          square: true,
+          title: 'Удалить из CRM',
+          onClick: () => deleteLead(row.original.id, row.original.name)
         })
-      )
+      ]
     )
   }
 ]
-
 watch(() => statusFilter.value, (newVal) => {
   if (!table?.value?.tableApi) return
 
@@ -519,6 +564,7 @@ function exportCSV() {
             v-model="leadScope"
             :items="[
               { label: 'В работе', value: 'in_work' },
+              { label: 'Радар (Сигналы)', value: 'radar' },
               { label: 'Архив', value: 'archive' }
             ]"
             class="min-w-32"
@@ -541,6 +587,10 @@ function exportCSV() {
             v-model="statusFilter"
             :items="[
               { label: 'Все', value: 'all' },
+              { label: 'Обнаружен (Detected)', value: 'detected' },
+              { label: 'Подтвержден (Confirmed)', value: 'confirmed' },
+              { label: 'Спорный (Controversial)', value: 'controversial' },
+              { label: 'Ложный (False Positive)', value: 'false_positive' },
               { label: 'Новый', value: 'new' },
               { label: 'Первичный контакт', value: 'contacted' },
               { label: 'В работе', value: 'qualified' },

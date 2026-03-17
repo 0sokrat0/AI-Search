@@ -82,6 +82,11 @@ func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 			continue
 		}
 
+		if h.isSpamSender(ctx, m.SenderID) {
+			h.log.Debug("message skipped: sender is spam", zap.Int64("sender_id", m.SenderID))
+			continue
+		}
+
 		// Keyword filtering
 		lowerText := strings.ToLower(text)
 		ignoredByKeyword := false
@@ -257,6 +262,17 @@ func (h *IngestHandler) isTeamMember(ctx context.Context, senderID int64) bool {
 		return false
 	}
 	return ok
+}
+
+func (h *IngestHandler) isSpamSender(ctx context.Context, senderID int64) bool {
+	if h.contactRepo == nil || senderID == 0 {
+		return false
+	}
+	c, err := h.contactRepo.FindBySenderID(ctx, h.tenantID, senderID)
+	if err != nil || c == nil {
+		return false
+	}
+	return c.IsSpam()
 }
 
 func senderKey(m PendingMsg) string {

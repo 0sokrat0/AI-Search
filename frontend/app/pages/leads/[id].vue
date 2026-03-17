@@ -221,7 +221,18 @@ watch(lead, (value) => {
           />
         </template>
         <template #right>
-          <div v-if="lead" class="flex items-center gap-2">
+          <div v-if="lead" class="flex items-center gap-1.5">
+            <!-- Contact chip: shows @username prominently -->
+            <div
+              v-if="lead.contact && lead.contact !== '—'"
+              class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-default bg-elevated text-xs font-mono text-muted select-all cursor-text"
+              :title="lead.contact"
+            >
+              <UIcon name="i-lucide-at-sign" class="size-3 shrink-0" />
+              <span class="max-w-32 truncate">{{ lead.contact }}</span>
+            </div>
+
+            <!-- Primary CTA: open Telegram direct -->
             <UButton
               v-if="contactHref"
               :href="contactHref"
@@ -229,22 +240,38 @@ watch(lead, (value) => {
               icon="i-lucide-send"
               label="Написать"
               color="primary"
-              variant="soft"
+              variant="solid"
               size="sm"
             />
-            <UButton
-              icon="i-lucide-copy"
-              label="Контакт"
-              color="neutral"
-              variant="soft"
-              size="sm"
-              @click="copyToClipboard(lead.contact || '')"
-            />
+            <UTooltip v-else text="Нет username — скопируйте имя для поиска в Telegram">
+              <UButton
+                icon="i-lucide-user-search"
+                label="Нет ника"
+                color="neutral"
+                variant="soft"
+                size="sm"
+                @click="copyToClipboard(lead.name || '')"
+              />
+            </UTooltip>
+
+            <!-- Copy username -->
+            <UTooltip text="Скопировать @ник">
+              <UButton
+                icon="i-lucide-copy"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                square
+                @click="copyToClipboard(lead.contact || lead.name || '')"
+              />
+            </UTooltip>
+
             <UButton
               icon="i-lucide-trash-2"
               color="error"
               variant="ghost"
               size="sm"
+              square
               @click="deleteLead"
             />
           </div>

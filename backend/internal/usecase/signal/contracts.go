@@ -46,6 +46,7 @@ type DTO struct {
 	PrimaryPercent         int      `json:"primaryPercent"`
 	IsIgnored              bool     `json:"isIgnored"`
 	IsTeamMember           bool     `json:"isTeamMember"`
+	IsSpamSender           bool     `json:"isSpamSender"`
 	IsViewed               bool     `json:"isViewed"`
 	IsNew                  bool     `json:"isNew"`
 	OtherChatsCount        int      `json:"otherChatsCount"`

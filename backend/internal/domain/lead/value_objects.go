@@ -3,11 +3,15 @@ package lead
 type Status string
 
 const (
-	StatusNew       Status = "new"
-	StatusContacted Status = "contacted"
-	StatusQualified Status = "qualified"
-	StatusConverted Status = "converted"
-	StatusRejected  Status = "rejected"
+	StatusNew           Status = "new"
+	StatusDetected      Status = "detected"
+	StatusConfirmed     Status = "confirmed"
+	StatusControversial Status = "controversial"
+	StatusFalsePositive Status = "false_positive"
+	StatusContacted     Status = "contacted"
+	StatusQualified     Status = "qualified"
+	StatusConverted     Status = "converted"
+	StatusRejected      Status = "rejected"
 )
 
 type Priority string
@@ -45,7 +49,8 @@ func validateTransition(from, to Status) error {
 
 func IsValidStatus(s Status) bool {
 	switch s {
-	case StatusNew, StatusContacted, StatusQualified, StatusConverted, StatusRejected:
+	case StatusNew, StatusDetected, StatusConfirmed, StatusControversial, StatusFalsePositive,
+		StatusContacted, StatusQualified, StatusConverted, StatusRejected:
 		return true
 	default:
 		return false

@@ -53,8 +53,23 @@ func (uc *UseCase) Approve(ctx context.Context, tenantID, id string) (*lead.Lead
 func (uc *UseCase) Reject(ctx context.Context, tenantID, id string) (*lead.Lead, error) {
 	return uc.setFeedback(ctx, tenantID, id, false)
 }
+func (uc *UseCase) MarkControversial(ctx context.Context, tenantID, id string) (*lead.Lead, error) {
+	l, err := uc.leads.FindByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	if l == nil {
+		return nil, lead.ErrLeadNotFound
+	}
+	l.MarkAsControversial()
+	if err := uc.leads.Update(ctx, l); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
 
 func (uc *UseCase) setFeedback(ctx context.Context, tenantID, id string, good bool) (*lead.Lead, error) {
+...
 	l, err := uc.leads.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err

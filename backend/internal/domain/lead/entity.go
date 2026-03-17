@@ -55,7 +55,7 @@ func Detect(
 		geo:              []string{},
 		products:         []string{},
 		semanticCategory: "leads",
-		status:           StatusNew,
+		status:           StatusDetected,
 		score:            score,
 		createdAt:        now,
 		updatedAt:        now,
@@ -172,10 +172,28 @@ func (l *Lead) SetStatus(to Status) error {
 
 func (l *Lead) Approve() {
 	l.setFeedback(true)
+	l.status = StatusConfirmed
 }
 
 func (l *Lead) Reject() {
 	l.setFeedback(false)
+	l.status = StatusFalsePositive
+}
+
+func (l *Lead) MarkAsConfirmed() {
+	l.setFeedback(true)
+	l.status = StatusConfirmed
+}
+
+func (l *Lead) MarkAsControversial() {
+	l.userFeedback = nil
+	l.status = StatusControversial
+	l.updatedAt = time.Now()
+}
+
+func (l *Lead) MarkAsFalsePositive() {
+	l.setFeedback(false)
+	l.status = StatusFalsePositive
 }
 
 func (l *Lead) setFeedback(good bool) {

@@ -24,6 +24,7 @@ const historyCollapsed = ref(true)
 
 const isIgnored = ref(props.mail.isIgnored)
 const isTeamMember = ref(props.mail.isTeamMember)
+const isSpamSender = ref(props.mail.isSpamSender ?? false)
 const flagLoading = ref<string | null>(null)
 
 const leadBriefData = shallowRef<LeadBrief | null>(null)
@@ -167,6 +168,7 @@ watch(
   (mail) => {
     isIgnored.value = mail.isIgnored
     isTeamMember.value = mail.isTeamMember
+    isSpamSender.value = mail.isSpamSender ?? false
     feedbackDone.value = null
     historyCollapsed.value = true
     leadBriefData.value = null
@@ -335,7 +337,7 @@ async function sendCategoryFeedback(category: 'traders' | 'merchants' | 'ps_offe
   }
 }
 
-async function setFlag(field: 'is_ignored' | 'is_team_member', value: boolean) {
+async function setFlag(field: 'is_ignored' | 'is_team_member' | 'is_spam_sender', value: boolean) {
   flagLoading.value = field
   try {
     await $fetch(`/api/signals/${props.mail.signalId}/flag`, {
@@ -344,15 +346,20 @@ async function setFlag(field: 'is_ignored' | 'is_team_member', value: boolean) {
     })
     if (field === 'is_ignored') {
       isIgnored.value = value
-    } else {
+    } else if (field === 'is_team_member') {
       isTeamMember.value = value
+    } else {
+      isSpamSender.value = value
     }
     emits('flagged', field, value)
+    const messages: Record<string, string> = {
+      is_ignored: value ? 'Сигнал архивирован' : 'Сигнал восстановлен из архива',
+      is_team_member: value ? 'Отмечен как сотрудник' : 'Отметка сотрудника снята',
+      is_spam_sender: value ? 'Отправитель помечен как спам — новые сообщения будут игнорироваться' : 'Отметка спама снята'
+    }
     toast.add({
       title: 'Обновлено',
-      description: field === 'is_ignored'
-        ? (value ? 'Сигнал архивирован' : 'Сигнал восстановлен из архива')
-        : (value ? 'Отмечен как сотрудник' : 'Отметка сотрудника снята'),
+      description: messages[field],
       color: 'success'
     })
   } catch (e: any) {
@@ -410,6 +417,18 @@ function formatDateSafe(value?: string | null): string {
             :loading="flagLoading === 'is_team_member'"
             :disabled="flagLoading !== null"
             @click="setFlag('is_team_member', !isTeamMember)"
+          />
+        </UTooltip>
+
+        <UTooltip :text="isSpamSender ? 'Снять метку спама' : 'Спам-отправитель — игнорировать навсегда'">
+          <UButton
+            :icon="isSpamSender ? 'i-lucide-shield-x' : 'i-lucide-shield-off'"
+            :color="isSpamSender ? 'error' : 'neutral'"
+            variant="ghost"
+            square
+            :loading="flagLoading === 'is_spam_sender'"
+            :disabled="flagLoading !== null"
+            @click="setFlag('is_spam_sender', !isSpamSender)"
           />
         </UTooltip>
 
@@ -476,6 +495,14 @@ function formatDateSafe(value?: string | null): string {
           icon="i-lucide-archive"
           label="Архив"
           color="warning"
+          variant="subtle"
+          size="xs"
+        />
+        <UBadge
+          v-if="isSpamSender"
+          icon="i-lucide-shield-off"
+          label="Спам-отправитель"
+          color="error"
           variant="subtle"
           size="xs"
         />

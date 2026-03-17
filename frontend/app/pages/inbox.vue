@@ -122,6 +122,7 @@ const allMailboxSignals = computed<Mail[]>(() => {
     senderTelegramId: signal.senderTelegramId,
     isIgnored: signal.isIgnored,
     isTeamMember: signal.isTeamMember,
+    isSpamSender: signal.isSpamSender ?? false,
     isDm: signal.isDm,
     otherChatsCount: signal.otherChatsCount,
     category: normalizeMailCategory(signal.semanticCategory),

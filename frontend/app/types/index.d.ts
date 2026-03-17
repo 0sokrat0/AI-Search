@@ -67,6 +67,7 @@ export interface Mail {
   senderTelegramId: number
   isIgnored: boolean
   isTeamMember: boolean
+  isSpamSender?: boolean
   isDm: boolean
   otherChatsCount: number
   semanticFlags?: string[]
@@ -74,7 +75,7 @@ export interface Mail {
   categoryReason?: string
 }
 
-export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'converted' | 'rejected'
+export type LeadStatus = 'new' | 'detected' | 'confirmed' | 'controversial' | 'false_positive' | 'contacted' | 'qualified' | 'converted' | 'rejected'
 export type LeadPriority = 'low' | 'medium' | 'high' | 'critical'
 
 export interface Lead {
@@ -143,6 +144,7 @@ export interface SignalItem {
   senderTelegramId: number
   isIgnored: boolean
   isTeamMember: boolean
+  isSpamSender?: boolean
   isDm: boolean
   otherChatsCount: number
   semanticFlags?: string[]

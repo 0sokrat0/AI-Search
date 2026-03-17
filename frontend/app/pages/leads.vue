@@ -37,7 +37,7 @@ const columnVisibility = ref<Record<string, boolean>>({
 const rowSelection = ref({})
 const statusFilter = ref('all')
 const categoryFilter = ref<'all' | 'leads' | 'traders' | 'merchants' | 'ps_offers' | 'noise'>('all')
-const leadScope = ref<'in_work' | 'archive' | 'radar'>('in_work')
+const leadScope = ref<'in_work' | 'archive'>('in_work')
 const bulkLoading = ref(false)
 const bulkStatus = ref<LeadStatus>('qualified')
 const bulkCompanyId = ref<string>('')
@@ -67,58 +67,37 @@ const statsDisplay = computed(() => [
   { label: 'Ложных срабатываний', value: leadStats.value?.rejected ?? 0, icon: 'i-lucide-x-circle', color: 'error' }
 ])
 
-const scopedLeads = computed(() => {
-  if (leadScope.value === 'radar') {
-    return data.value.filter(l => l.status === 'detected' || l.status === 'confirmed' || l.status === 'controversial' || l.status === 'false_positive' || l.status === 'new')
+const chartData = computed(() => [
+  {
+    name: 'Статус сигналов',
+    detected: leadStats.value?.totalDetected ?? 0,
+    confirmed: leadStats.value?.approved ?? 0,
+    rejected: leadStats.value?.rejected ?? 0,
+    controversial: leadStats.value?.pending ?? 0
   }
+])
+
+const chartCategories = {
+  detected: { name: 'Обнаружено (ИИ)', color: '#3b82f6' },
+  confirmed: { name: 'Подтверждено (Руками)', color: '#10b981' },
+  controversial: { name: 'Спорные (❓)', color: '#f59e0b' },
+  rejected: { name: 'Ложные (FP ❌)', color: '#ef4444' }
+}
+
+const xFormatter = (i) => chartData.value[i].name
+
+const scopedLeads = computed(() => {
   return leadScope.value === 'archive'
     ? data.value.filter(l => l.status === 'converted' || l.status === 'rejected' || l.status === 'false_positive')
     : data.value.filter(l => l.status === 'new' || l.status === 'contacted' || l.status === 'qualified' || l.status === 'detected' || l.status === 'confirmed' || l.status === 'controversial')
 })
 
 const groupedScopedLeads = computed<GroupedLead[]>(() => {
-  if (leadScope.value === 'radar') {
-    return scopedLeads.value.map(l => ({
-      ...l,
-      chatTitles: l.chatTitle ? [l.chatTitle] : [],
-      allIds: [l.id]
-    }))
-  }
-  const groups = new Map<string, GroupedLead>()
-
-  for (const lead of scopedLeads.value) {
-    const rawContact = (lead.contact || '').trim()
-    // Группируем только если есть осмысленный контакт
-    const key = rawContact && rawContact !== '—'
-      ? rawContact.toLowerCase()
-      : `__solo__${lead.id}`
-
-    if (groups.has(key)) {
-      const g = groups.get(key)!
-      g.signalsCount += (lead.signalsCount ?? 1)
-      if (lead.chatTitle && !g.chatTitles.includes(lead.chatTitle)) {
-        g.chatTitles.push(lead.chatTitle)
-      }
-      g.allIds.push(lead.id)
-      if (new Date(lead.lastSeenAt) > new Date(g.lastSeenAt)) {
-        g.lastSeenAt = lead.lastSeenAt
-      }
-      // Берём назначение компании если у основной записи его нет
-      if (!g.merchantId && lead.merchantId) {
-        g.merchantId = lead.merchantId
-        g.company = lead.company
-        g.companyId = lead.companyId
-      }
-    } else {
-      groups.set(key, {
-        ...lead,
-        chatTitles: lead.chatTitle ? [lead.chatTitle] : [],
-        allIds: [lead.id]
-      })
-    }
-  }
-
-  return Array.from(groups.values())
+  return scopedLeads.value.map(l => ({
+    ...l,
+    chatTitles: l.chatTitle ? [l.chatTitle] : [],
+    allIds: [l.id]
+  }))
 })
 
 function formatLastSeen(value?: string) {
@@ -570,16 +549,43 @@ function exportCSV() {
       </UDashboardNavbar>
     </template>
     <template #body>
-      <div v-if="leadScope === 'radar'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div
-          v-for="stat in statsDisplay"
-          :key="stat.label"
-          class="flex items-center gap-3 p-4 rounded-lg border border-default bg-elevated"
-        >
-          <UIcon :name="stat.icon" :class="[`w-8 h-8`, `text-${stat.color}`]" />
-          <div>
-            <p class="text-xs text-muted">{{ stat.label }}</p>
-            <p class="text-xl font-bold font-mono">{{ stat.value }}</p>
+      <div v-if="leadScope === 'in_work'" class="space-y-6 mb-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Stats Grid -->
+          <div class="lg:col-span-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div
+              v-for="stat in statsDisplay"
+              :key="stat.label"
+              class="flex items-center gap-3 p-4 rounded-lg border border-default bg-elevated shadow-sm"
+            >
+              <UIcon :name="stat.icon" :class="[`w-7 h-7`, `text-${stat.color}`]" />
+              <div>
+                <p class="text-[10px] uppercase tracking-wider text-muted font-semibold">{{ stat.label }}</p>
+                <p class="text-xl font-bold font-mono">{{ stat.value }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart Block -->
+          <div class="lg:col-span-2 p-4 rounded-lg border border-default bg-elevated shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <h4 class="text-xs font-bold uppercase tracking-widest text-muted flex items-center gap-2">
+                <UIcon name="i-lucide-bar-chart-3" class="w-4 h-4" />
+                Воронка классификации (30д)
+              </h4>
+            </div>
+            <div class="h-[120px] w-full">
+              <BarChart
+                :data="chartData"
+                :categories="chartCategories"
+                :height="120"
+                :xFormatter="xFormatter"
+                orientation="horizontal"
+                :showXAxis="false"
+                :showGridLine="false"
+                :showLegend="true"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -597,22 +603,21 @@ function exportCSV() {
             v-model="leadScope"
             :items="[
               { label: 'В работе', value: 'in_work' },
-              { label: 'Радар (Сигналы)', value: 'radar' },
               { label: 'Архив', value: 'archive' }
             ]"
             class="min-w-32"
           />
 
-          <UButtonGroup v-if="leadScope === 'radar'" size="sm">
+          <UButtonGroup size="sm">
             <UButton
               :variant="statusFilter === 'all' ? 'solid' : 'ghost'"
-              label="Все"
+              label="Все сигналы"
               color="neutral"
               @click="statusFilter = 'all'"
             />
             <UButton
               :variant="statusFilter === 'confirmed' ? 'solid' : 'ghost'"
-              label="Продвинутые"
+              label="Подтвержденные"
               color="success"
               icon="i-lucide-check-check"
               @click="statusFilter = 'confirmed'"
@@ -627,7 +632,6 @@ function exportCSV() {
           </UButtonGroup>
 
           <USelect
-            v-if="leadScope !== 'radar'"
             v-model="categoryFilter"
             :items="[
               { label: 'Все типы сигналов', value: 'all' },

@@ -4,7 +4,8 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@vueuse/nuxt',
     '@pinia/nuxt',
-    '@peterbud/nuxt-query'
+    '@peterbud/nuxt-query',
+    'nuxt-charts'
   ],
 
   devtools: {

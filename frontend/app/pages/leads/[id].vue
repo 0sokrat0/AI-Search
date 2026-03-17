@@ -18,7 +18,8 @@ const signals = computed(() => (brief.value as LeadBrief | null)?.signals ?? [])
 const briefData = computed(() => brief.value as LeadBrief | null)
 
 const selectedCompanyId = ref<string>('')
-const assigningTeam = ref(false)
+const assigningCompany = ref(false)
+const showAddCompanyModal = ref(false)
 const newCompanyName = ref('')
 const addingCompany = ref(false)
 const updatingCategory = ref(false)
@@ -154,10 +155,9 @@ async function updateCategory() {
   }
 }
 
-async function assignTeam() {
-  const companyId = selectedCompanyId.value
+async function assignCompany(companyId: string) {
   if (!companyId) return
-  assigningTeam.value = true
+  assigningCompany.value = true
   try {
     await $fetch(`/api/leads/${leadID}/merchant`, {
       method: 'PUT',
@@ -167,11 +167,11 @@ async function assignTeam() {
     toast.add({ title: 'Компания назначена', description: name, color: 'success' })
     await refresh()
   } finally {
-    assigningTeam.value = false
+    assigningCompany.value = false
   }
 }
 
-async function addCompanyFromLeadCard() {
+async function createCompany() {
   const name = newCompanyName.value.trim()
   if (!name) return
   addingCompany.value = true
@@ -179,8 +179,12 @@ async function addCompanyFromLeadCard() {
     await addCompany(name)
     await refreshCompanies()
     const created = [...companies.value].reverse().find(c => c.name === name)
-    if (created) selectedCompanyId.value = created.id
+    if (created) {
+      selectedCompanyId.value = created.id
+      await assignCompany(created.id)
+    }
     newCompanyName.value = ''
+    showAddCompanyModal.value = false
     toast.add({ title: 'Компания создана', color: 'success' })
   } catch (e: any) {
     toast.add({ title: 'Ошибка', description: e?.message, color: 'error' })
@@ -486,11 +490,12 @@ watch(lead, (value) => {
           <template #header>
             <div class="flex items-center justify-between">
               <h3 class="font-semibold">
-                Компания
+                Привязка к компании
               </h3>
               <UBadge
                 v-if="companyName !== '—'"
-                color="neutral"
+                icon="i-lucide-building-2"
+                color="info"
                 variant="subtle"
                 size="sm"
               >
@@ -498,41 +503,57 @@ watch(lead, (value) => {
               </UBadge>
             </div>
           </template>
-          <div class="flex flex-wrap items-center gap-2">
+
+          <div class="flex items-center gap-2">
             <USelect
               v-model="selectedCompanyId"
               :items="companySelectItems"
-              :loading="companiesLoading"
+              :loading="companiesLoading || assigningCompany"
               icon="i-lucide-building-2"
               placeholder="Выбрать компанию..."
-              class="min-w-56"
+              class="flex-1"
+              @update:model-value="assignCompany"
             />
-            <UButton
-              icon="i-lucide-save"
-              label="Назначить"
-              color="primary"
-              :loading="assigningTeam"
-              :disabled="!selectedCompanyId"
-              @click="assignTeam"
-            />
-          </div>
-          <div class="mt-3 flex flex-wrap items-center gap-2">
-            <UInput
-              v-model="newCompanyName"
-              icon="i-lucide-plus"
-              placeholder="Создать новую компанию..."
-              class="min-w-56"
-              @keydown.enter.prevent="addCompanyFromLeadCard"
-            />
-            <UButton
-              icon="i-lucide-plus"
-              label="Создать"
-              color="neutral"
-              variant="soft"
-              :loading="addingCompany"
-              :disabled="!newCompanyName.trim()"
-              @click="addCompanyFromLeadCard"
-            />
+
+            <UModal
+              v-model:open="showAddCompanyModal"
+              title="Новая компания"
+              description="Название станет тегом — будет видно в списке сигналов"
+            >
+              <UButton
+                icon="i-lucide-plus"
+                color="neutral"
+                variant="outline"
+                square
+                title="Создать новую"
+              />
+
+              <template #body>
+                <div class="space-y-4">
+                  <UInput
+                    v-model="newCompanyName"
+                    placeholder="Например: MegaPay"
+                    autofocus
+                    @keydown.enter.prevent="createCompany"
+                  />
+                  <div class="flex justify-end gap-2">
+                    <UButton
+                      label="Отмена"
+                      color="neutral"
+                      variant="ghost"
+                      @click="showAddCompanyModal = false"
+                    />
+                    <UButton
+                      label="Создать и назначить"
+                      color="primary"
+                      :loading="addingCompany"
+                      :disabled="!newCompanyName.trim()"
+                      @click="createCompany"
+                    />
+                  </div>
+                </div>
+              </template>
+            </UModal>
           </div>
         </UCard>
 

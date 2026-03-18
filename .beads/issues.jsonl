@@ -1,0 +1,5 @@
+{"id":"AI Search-9es","title":"Admin: настройки порога машины и очистки шума","status":"open","priority":2,"issue_type":"feature","created_at":"2026-03-18T22:05:13.00652+03:00","updated_at":"2026-03-18T22:05:13.00652+03:00"}
+{"id":"AI Search-lw3","title":"Analytics: радар, confirmed/false positive и графики по тегам","status":"open","priority":2,"issue_type":"feature","created_at":"2026-03-18T22:05:13.03956+03:00","updated_at":"2026-03-18T22:05:13.03956+03:00"}
+{"id":"AI Search-rzd","title":"Backend: правила квалификации лидов, шум и скрытые профили","status":"open","priority":1,"issue_type":"feature","created_at":"2026-03-18T22:05:13.039592+03:00","updated_at":"2026-03-18T22:05:13.039592+03:00"}
+{"id":"AI Search-w6h","title":"Frontend Nuxt: вкладки лидов, теги сигналов и пагинация","status":"open","priority":1,"issue_type":"feature","created_at":"2026-03-18T22:05:13.050373+03:00","updated_at":"2026-03-18T22:05:13.050373+03:00"}
+{"id":"AI Search-yer","title":"Переработка воронки сигналов и лидов","status":"open","priority":1,"issue_type":"feature","created_at":"2026-03-18T22:05:13.028241+03:00","updated_at":"2026-03-18T22:05:13.028241+03:00"}

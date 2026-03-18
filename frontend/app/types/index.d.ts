@@ -70,6 +70,7 @@ export interface Mail {
   isSpamSender?: boolean
   isDm: boolean
   otherChatsCount: number
+  showMultiAccountBadges?: boolean
   semanticFlags?: string[]
   category?: 'traders' | 'merchants' | 'ps_offers' | 'noise'
   categoryReason?: string
@@ -77,6 +78,7 @@ export interface Mail {
 
 export type LeadStatus = 'new' | 'detected' | 'confirmed' | 'controversial' | 'false_positive' | 'contacted' | 'qualified' | 'converted' | 'rejected'
 export type LeadPriority = 'low' | 'medium' | 'high' | 'critical'
+export type LeadQualificationSource = 'ai_qualified' | 'manual_approved'
 
 export interface Lead {
   id: string
@@ -84,11 +86,13 @@ export interface Lead {
   contact: string // @username or senderID
   avatar?: AvatarProps
   chatTitle: string
+  text?: string
   semanticDirection?: string
   semanticCategory?: 'leads' | 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
   merchantId: string
   companyId?: string
   company?: string
+  qualificationSource?: LeadQualificationSource | null
   status: LeadStatus
   priority: LeadPriority
   score: number
@@ -164,10 +168,28 @@ export interface LeadStats {
   approved: number
   rejected: number
   pending: number
+  aiQualified: number
+  manualApproved: number
   avgScore: number
   avgScoreApproved: number
   avgScoreRejected: number
   buckets: ScoreBucket[]
+  approvedByCategory: {
+    traders: number
+    merchants: number
+    psOffers: number
+  }
+  rejectedByCategory: {
+    traders: number
+    merchants: number
+    psOffers: number
+  }
+  series: Array<{
+    day: string
+    traders: number
+    merchants: number
+    psOffers: number
+  }>
 }
 
 export interface IngestHourlyBucket {
@@ -216,6 +238,8 @@ export interface AppSettings {
   trader_threshold?: string
   merchant_threshold?: string
   ps_offer_threshold?: string
+  noise_cleanup_enabled?: string
+  show_multi_account_badges?: string
   tg_app_id?: string
   tg_app_hash?: string
   companies_json?: string

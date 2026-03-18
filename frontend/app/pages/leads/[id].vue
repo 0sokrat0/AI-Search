@@ -63,18 +63,31 @@ const categorySelectItems = [
 
 const statusLabel: Record<LeadStatus, string> = {
   new: 'Новый',
+  detected: 'Обнаружен',
+  confirmed: 'Подтверждён',
+  controversial: 'Спорный',
+  false_positive: 'Ложный',
   contacted: 'Первичный контакт',
   qualified: 'В работе',
   converted: 'Подключён',
   rejected: 'Закрыт'
 }
 
-const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral'> = {
+const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'info'> = {
   new: 'primary',
+  detected: 'info',
+  confirmed: 'success',
+  controversial: 'warning',
+  false_positive: 'error',
   contacted: 'warning',
   qualified: 'success',
   converted: 'success',
   rejected: 'neutral'
+}
+
+const qualificationSourceLabel: Record<string, string> = {
+  ai_qualified: 'Квалифицировано ИИ',
+  manual_approved: 'Ручной апрув'
 }
 
 // qualification: userFeedback=null → unreviewed, true → lead, false → not-lead
@@ -329,6 +342,13 @@ watch(lead, (value) => {
                   variant="soft"
                 >
                   {{ categoryLabel[String(lead.semanticCategory || 'leads')] || lead.semanticCategory }}
+                </UBadge>
+                <UBadge
+                  v-if="lead.qualificationSource"
+                  color="info"
+                  variant="soft"
+                >
+                  {{ qualificationSourceLabel[lead.qualificationSource] || lead.qualificationSource }}
                 </UBadge>
               </div>
             </div>

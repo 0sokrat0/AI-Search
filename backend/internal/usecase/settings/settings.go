@@ -40,5 +40,12 @@ func (uc *UseCase) Update(ctx context.Context, patch map[string]string) error {
 			return ErrInvalidWindow
 		}
 	}
+	for _, k := range []string{"noise_cleanup_enabled", "show_multi_account_badges"} {
+		if v, ok := patch[k]; ok {
+			if _, err := strconv.ParseBool(v); err != nil {
+				return ErrInvalidThreshold
+			}
+		}
+	}
 	return uc.store.SetAll(ctx, patch)
 }

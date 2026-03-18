@@ -24,15 +24,33 @@ const { data: stats } = await useFetch<LeadStats>('/api/leads/stats', {
     approved: 0,
     rejected: 0,
     pending: 0,
+    aiQualified: 0,
+    manualApproved: 0,
     avgScore: 0,
     avgScoreApproved: 0,
     avgScoreRejected: 0,
-    buckets: []
+    buckets: [],
+    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
+    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
+    series: []
   })
 })
 
+function formatDistribution(distribution: LeadStats['approvedByCategory']) {
+  return `Тр ${distribution.traders} · М ${distribution.merchants} · ПС ${distribution.psOffers}`
+}
+
 const cards = computed(() => {
-  const s = stats.value ?? { totalDetected: 0, approved: 0, rejected: 0, pending: 0, avgScoreRejected: 0 }
+  const s = stats.value ?? {
+    totalDetected: 0,
+    approved: 0,
+    rejected: 0,
+    aiQualified: 0,
+    manualApproved: 0,
+    avgScoreRejected: 0,
+    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
+    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0 }
+  }
   const totalDecisions = s.approved + s.rejected
   const approvalRate = totalDecisions > 0
     ? Math.round((s.approved / totalDecisions) * 100)
@@ -48,19 +66,19 @@ const cards = computed(() => {
       title: 'Лидов подтверждено',
       icon: 'i-lucide-badge-check',
       value: s.approved,
-      sub: totalDecisions > 0 ? `${approvalRate}% от обработанных` : '0% от всех'
+      sub: totalDecisions > 0 ? `${approvalRate}% · ${formatDistribution(s.approvedByCategory)}` : formatDistribution(s.approvedByCategory)
     },
     {
       title: 'Ложных срабатываний',
       icon: 'i-lucide-x-circle',
       value: s.rejected,
-      sub: s.rejected > 0 ? `ср. score ${s.avgScoreRejected?.toFixed(2) ?? '—'}` : 'нет'
+      sub: s.rejected > 0 ? formatDistribution(s.rejectedByCategory) : 'нет'
     },
     {
-      title: 'Спорные сигналы',
-      icon: 'i-lucide-clock',
-      value: s.pending,
-      sub: 'нуждаются в ручной проверке'
+      title: 'Квалифицировано ИИ',
+      icon: 'i-lucide-brain-circuit',
+      value: s.aiQualified,
+      sub: `Ручной апрув: ${s.manualApproved}`
     }
   ]
 })

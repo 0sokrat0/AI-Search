@@ -487,9 +487,14 @@ func isLeadTabSignal(dto DTO) bool {
 		return false
 	}
 	if dto.LeadID != nil {
-		return true
+		return false
 	}
-	return strings.ToLower(strings.TrimSpace(dto.SemanticCategory)) != "noise"
+	switch strings.ToLower(strings.TrimSpace(dto.SemanticCategory)) {
+	case "traders", "merchants", "ps_offers":
+		return true
+	default:
+		return false
+	}
 }
 
 func mapDirectionToCategory(direction string) (string, bool) {

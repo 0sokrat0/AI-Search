@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, format, parseISO, startOfDay, startOfMonth, startOfWeek } from 'date-fns'
-import { VisXYContainer, VisLine, VisAxis, VisArea, VisCrosshair, VisTooltip } from '@unovis/vue'
-import type { Period, Range, ChartDayBucket } from '~/types'
+import { VisXYContainer, VisLine, VisAxis, VisCrosshair, VisTooltip } from '@unovis/vue'
+import type { Period, Range, LeadStats } from '~/types'
 
 const cardRef = useTemplateRef<HTMLElement | null>('cardRef')
 
@@ -12,21 +12,39 @@ const props = defineProps<{
 
 type DataRecord = {
   date: Date
-  total: number
-  target: number
+  traders: number
+  merchants: number
+  psOffers: number
 }
 
 const { width } = useElementSize(cardRef)
 
 const data = ref<DataRecord[]>([])
 
-const { data: chartBuckets } = await useFetch<ChartDayBucket[]>('/api/signals/chart', {
-  query: computed(() => ({
-    from: props.range.start.toISOString(),
-    to: props.range.end.toISOString()
-  })),
-  default: () => [],
-  watch: [() => props.range]
+const statsDays = computed(() => {
+  const ms = props.range.end.getTime() - props.range.start.getTime()
+  return Math.max(1, Math.ceil(ms / 86_400_000) + 1)
+})
+
+const { data: stats } = await useFetch<LeadStats>('/api/leads/stats', {
+  query: computed(() => ({ days: statsDays.value })),
+  default: (): LeadStats => ({
+    period: '30d',
+    totalDetected: 0,
+    approved: 0,
+    rejected: 0,
+    pending: 0,
+    aiQualified: 0,
+    manualApproved: 0,
+    avgScore: 0,
+    avgScoreApproved: 0,
+    avgScoreRejected: 0,
+    buckets: [],
+    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
+    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
+    series: []
+  }),
+  watch: [statsDays]
 })
 
 function toBucketKey(date: Date): string {
@@ -35,34 +53,46 @@ function toBucketKey(date: Date): string {
   return format(startOfMonth(date), 'yyyy-MM-dd')
 }
 
-watch([() => props.period, () => props.range, chartBuckets], () => {
+watch([() => props.period, () => props.range, stats], () => {
   const dates = ({
     daily: eachDayOfInterval,
     weekly: eachWeekOfInterval,
     monthly: eachMonthOfInterval
   } as Record<Period, typeof eachDayOfInterval>)[props.period](props.range)
 
-  const buckets = new Map<string, { total: number, target: number }>()
-  for (const b of chartBuckets.value || []) {
+  const buckets = new Map<string, { traders: number, merchants: number, psOffers: number }>()
+  for (const b of stats.value?.series || []) {
     const dt = parseISO(b.day)
     const key = toBucketKey(dt)
-    const existing = buckets.get(key) ?? { total: 0, target: 0 }
-    buckets.set(key, { total: existing.total + b.total, target: existing.target + b.target })
+    const existing = buckets.get(key) ?? { traders: 0, merchants: 0, psOffers: 0 }
+    buckets.set(key, {
+      traders: existing.traders + b.traders,
+      merchants: existing.merchants + b.merchants,
+      psOffers: existing.psOffers + b.psOffers
+    })
   }
 
   data.value = dates.map((date) => {
     const key = toBucketKey(date)
     const b = buckets.get(key)
-    return { date, total: b?.total ?? 0, target: b?.target ?? 0 }
+    return {
+      date,
+      traders: b?.traders ?? 0,
+      merchants: b?.merchants ?? 0,
+      psOffers: b?.psOffers ?? 0
+    }
   })
 }, { immediate: true })
 
 const x = (_: DataRecord, i: number) => i
-const yTotal = (d: DataRecord) => d.total
-const yTarget = (d: DataRecord) => d.target
+const yTraders = (d: DataRecord) => d.traders
+const yMerchants = (d: DataRecord) => d.merchants
+const yPSOffers = (d: DataRecord) => d.psOffers
 
-const total = computed(() => data.value.reduce((acc: number, d) => acc + d.total, 0))
-const targetTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.target, 0))
+const total = computed(() => data.value.reduce((acc: number, d) => acc + d.traders + d.merchants + d.psOffers, 0))
+const tradersTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.traders, 0))
+const merchantsTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.merchants, 0))
+const psOffersTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.psOffers, 0))
 
 const formatDate = (date: Date): string => {
   return ({
@@ -79,7 +109,7 @@ const xTicks = (i: number) => {
   return formatDate(data.value[i].date)
 }
 
-const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: всего ${d.total}, целевые ${d.target}`
+const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: трейдеры ${d.traders}, мерчанты ${d.merchants}, ПС ${d.psOffers}`
 </script>
 
 <template>
@@ -93,7 +123,9 @@ const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: всего ${
           {{ total }}
         </p>
         <p class="text-sm text-muted mt-1">
-          Целевые: <span class="text-success font-medium">{{ targetTotal }}</span>
+          Тр <span class="font-medium text-success">{{ tradersTotal }}</span> ·
+          М <span class="font-medium text-info">{{ merchantsTotal }}</span> ·
+          ПС <span class="font-medium text-primary">{{ psOffersTotal }}</span>
         </p>
       </div>
     </template>
@@ -107,19 +139,18 @@ const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: всего ${
       >
         <VisLine
           :x="x"
-          :y="yTotal"
-          color="var(--ui-primary)"
-        />
-        <VisArea
-          :x="x"
-          :y="yTotal"
-          color="var(--ui-primary)"
-          :opacity="0.1"
+          :y="yTraders"
+          color="var(--ui-success)"
         />
         <VisLine
           :x="x"
-          :y="yTarget"
-          color="var(--ui-success)"
+          :y="yMerchants"
+          color="var(--ui-info)"
+        />
+        <VisLine
+          :x="x"
+          :y="yPSOffers"
+          color="var(--ui-primary)"
         />
 
         <VisAxis
@@ -136,8 +167,9 @@ const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: всего ${
         <VisTooltip />
       </VisXYContainer>
       <div class="px-4 pt-2 flex items-center gap-4 text-xs text-muted border-t border-default/50 mt-2">
-        <span class="inline-flex items-center gap-1"><span class="size-2 rounded-full bg-primary" /> Общий поток</span>
-        <span class="inline-flex items-center gap-1"><span class="size-2 rounded-full bg-success" /> Целевые сигналы</span>
+        <span class="inline-flex items-center gap-1"><span class="size-2 rounded-full bg-success" /> Трейдеры</span>
+        <span class="inline-flex items-center gap-1"><span class="size-2 rounded-full bg-info" /> Мерчанты</span>
+        <span class="inline-flex items-center gap-1"><span class="size-2 rounded-full bg-primary" /> Предложения ПС</span>
       </div>
     </div>
     <div v-else class="h-96 flex items-center justify-center text-muted text-sm">

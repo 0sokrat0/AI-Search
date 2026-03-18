@@ -14,6 +14,14 @@ const (
 	StatusRejected      Status = "rejected"
 )
 
+type QualificationSource string
+
+const (
+	QualificationSourceNone   QualificationSource = ""
+	QualificationSourceAI     QualificationSource = "ai_qualified"
+	QualificationSourceManual QualificationSource = "manual_approved"
+)
+
 type Priority string
 
 const (

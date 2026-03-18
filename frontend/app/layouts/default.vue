@@ -11,7 +11,7 @@ const { data: sidebarSignals } = useFetch<SignalItem[]>('/api/signals', {
 })
 
 const queueCount = computed(() => {
-  return (sidebarSignals.value || []).filter(s => s.isLead && !s.isIgnored).length
+  return (sidebarSignals.value || []).filter(s => s.classifiedAsLead && !s.isIgnored).length
 })
 
 const links = computed<NavigationMenuItem[][]>(() => [[{
@@ -30,7 +30,7 @@ const links = computed<NavigationMenuItem[][]>(() => [[{
     open.value = false
   }
 }, {
-  label: 'Лиды',
+  label: 'Квалифицированные лиды',
   to: '/leads',
   icon: 'i-lucide-users',
   onSelect: () => {

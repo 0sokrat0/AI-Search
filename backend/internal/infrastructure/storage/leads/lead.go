@@ -141,7 +141,11 @@ var scoreBoundaries = []float64{0.00, 0.50, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 
 
 func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days int) (*lead.Stats, error) {
 	from := time.Now().UTC().AddDate(0, 0, -days)
-	match := bson.M{"tenant_id": tenantID, "created_at": bson.M{"$gte": from}}
+	match := bson.M{
+		"tenant_id":  tenantID,
+		"created_at": bson.M{"$gte": from},
+		"status":     bson.M{"$ne": string(lead.StatusControversial)},
+	}
 
 	feedbackPipeline := mongo.Pipeline{
 		{{Key: "$match", Value: match}},
@@ -149,6 +153,7 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 			{Key: "_id", Value: bson.D{
 				{Key: "feedback", Value: "$user_feedback"},
 				{Key: "category", Value: "$semantic_category"},
+				{Key: "qualification_source", Value: "$qualification_source"},
 			}},
 			{Key: "count", Value: bson.M{"$sum": 1}},
 			{Key: "avg_score", Value: bson.M{"$avg": "$score"}},
@@ -166,8 +171,9 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 	}(fcur, ctx)
 
 	type feedbackID struct {
-		Feedback *bool  `bson:"feedback"`
-		Category string `bson:"category"`
+		Feedback            *bool  `bson:"feedback"`
+		Category            string `bson:"category"`
+		QualificationSource string `bson:"qualification_source"`
 	}
 	type feedbackRow struct {
 		ID       feedbackID `bson:"_id"`
@@ -187,6 +193,13 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 		totalScore += row.AvgScore * float64(row.Count)
 		totalCount += row.Count
 
+		switch row.ID.QualificationSource {
+		case string(lead.QualificationSourceAI):
+			stats.AIQualified += row.Count
+		case string(lead.QualificationSourceManual):
+			stats.ManualApproved += row.Count
+		}
+
 		if row.ID.Category == "noise" || row.ID.Category == "spam" {
 			stats.Rejected += row.Count
 			// We can use the average score of noise for AvgScoreRejected
@@ -204,9 +217,11 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 		} else if *row.ID.Feedback {
 			stats.Approved += row.Count
 			stats.AvgScoreApproved = row.AvgScore
+			accumulateCategoryDistribution(&stats.ApprovedByCategory, row.ID.Category, row.Count)
 		} else {
 			stats.Rejected += row.Count
 			stats.AvgScoreRejected = row.AvgScore
+			accumulateCategoryDistribution(&stats.RejectedByCategory, row.ID.Category, row.Count)
 		}
 	}
 	if totalCount > 0 {
@@ -270,7 +285,89 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 			Count: b.Count, Approved: b.Approved, Rejected: b.Rejected,
 		})
 	}
+
+	seriesPipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{
+			"tenant_id":         tenantID,
+			"created_at":        bson.M{"$gte": from},
+			"status":            bson.M{"$ne": string(lead.StatusControversial)},
+			"semantic_category": bson.M{"$in": bson.A{"traders", "merchants", "ps_offers"}},
+			"qualification_source": bson.M{"$in": bson.A{
+				string(lead.QualificationSourceAI),
+				string(lead.QualificationSourceManual),
+			}},
+		}}},
+		{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: bson.D{
+				{Key: "day", Value: bson.M{
+					"$dateToString": bson.M{"format": "%Y-%m-%d", "date": "$created_at"},
+				}},
+				{Key: "category", Value: "$semantic_category"},
+			}},
+			{Key: "count", Value: bson.M{"$sum": 1}},
+		}}},
+		{{Key: "$sort", Value: bson.D{{Key: "_id.day", Value: 1}}}},
+	}
+	scur, err := r.col.Aggregate(ctx, seriesPipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer func(scur *mongo.Cursor, ctx context.Context) {
+		err := scur.Close(ctx)
+		if err != nil {
+		}
+	}(scur, ctx)
+
+	type seriesID struct {
+		Day      string `bson:"day"`
+		Category string `bson:"category"`
+	}
+	type seriesRow struct {
+		ID    seriesID `bson:"_id"`
+		Count int64    `bson:"count"`
+	}
+	var srows []seriesRow
+	if err := scur.All(ctx, &srows); err != nil {
+		return nil, err
+	}
+
+	seriesMap := make(map[string]*lead.CategorySeriesBucket, len(srows))
+	for _, row := range srows {
+		bucket := seriesMap[row.ID.Day]
+		if bucket == nil {
+			bucket = &lead.CategorySeriesBucket{Day: row.ID.Day}
+			seriesMap[row.ID.Day] = bucket
+		}
+		switch row.ID.Category {
+		case "traders":
+			bucket.Traders += row.Count
+		case "merchants":
+			bucket.Merchants += row.Count
+		case "ps_offers":
+			bucket.PSOffers += row.Count
+		}
+	}
+
+	for day := from; !day.After(time.Now().UTC()); day = day.AddDate(0, 0, 1) {
+		key := day.Format("2006-01-02")
+		if bucket, ok := seriesMap[key]; ok {
+			stats.Series = append(stats.Series, *bucket)
+			continue
+		}
+		stats.Series = append(stats.Series, lead.CategorySeriesBucket{Day: key})
+	}
 	return stats, nil
+}
+
+func accumulateCategoryDistribution(target *lead.CategoryDistribution, category string, count int64) {
+	switch category {
+	case "traders":
+		target.Traders += count
+	case "merchants":
+		target.Merchants += count
+	case "ps_offers":
+		target.PSOffers += count
+	}
 }
 
 func asFloat64(v any) (float64, bool) {
@@ -298,6 +395,12 @@ func asFloat64(v any) (float64, bool) {
 
 func buildFilter(tenantID string, f lead.ListFilter) bson.M {
 	q := bson.M{"tenant_id": tenantID}
+	if f.QualifiedOnly {
+		q["qualification_source"] = bson.M{"$in": bson.A{
+			string(lead.QualificationSourceAI),
+			string(lead.QualificationSourceManual),
+		}}
+	}
 	if f.Status != nil {
 		q["status"] = string(*f.Status)
 	}
@@ -346,26 +449,27 @@ func decodeCursor(ctx context.Context, cur *mongo.Cursor) ([]*lead.Lead, error) 
 }
 
 type leadDoc struct {
-	ID                 string     `bson:"_id"`
-	TenantID           string     `bson:"tenant_id"`
-	MessageID          string     `bson:"message_id"`
-	ChatID             int64      `bson:"chat_id"`
-	ChatTitle          string     `bson:"chat_title"`
-	SenderID           int64      `bson:"sender_id"`
-	SenderName         string     `bson:"sender_name"`
-	SenderUsername     string     `bson:"sender_username"`
-	Text               string     `bson:"text"`
-	Geo                []string   `bson:"geo"`
-	Products           []string   `bson:"products"`
-	SemanticDirection  string     `bson:"semantic_direction,omitempty"`
-	SemanticCategory   string     `bson:"semantic_category,omitempty"`
-	MerchantID         string     `bson:"merchant_id"`
-	Status             string     `bson:"status"`
-	Score              float64    `bson:"score"`
-	UserFeedback       *bool      `bson:"user_feedback"`
-	CategoryAssignedAt *time.Time `bson:"category_assigned_at,omitempty"`
-	CreatedAt          time.Time  `bson:"created_at"`
-	UpdatedAt          time.Time  `bson:"updated_at"`
+	ID                  string     `bson:"_id"`
+	TenantID            string     `bson:"tenant_id"`
+	MessageID           string     `bson:"message_id"`
+	ChatID              int64      `bson:"chat_id"`
+	ChatTitle           string     `bson:"chat_title"`
+	SenderID            int64      `bson:"sender_id"`
+	SenderName          string     `bson:"sender_name"`
+	SenderUsername      string     `bson:"sender_username"`
+	Text                string     `bson:"text"`
+	Geo                 []string   `bson:"geo"`
+	Products            []string   `bson:"products"`
+	SemanticDirection   string     `bson:"semantic_direction,omitempty"`
+	SemanticCategory    string     `bson:"semantic_category,omitempty"`
+	MerchantID          string     `bson:"merchant_id"`
+	Status              string     `bson:"status"`
+	QualificationSource string     `bson:"qualification_source,omitempty"`
+	Score               float64    `bson:"score"`
+	UserFeedback        *bool      `bson:"user_feedback"`
+	CategoryAssignedAt  *time.Time `bson:"category_assigned_at,omitempty"`
+	CreatedAt           time.Time  `bson:"created_at"`
+	UpdatedAt           time.Time  `bson:"updated_at"`
 }
 
 func toDoc(l *lead.Lead) bson.M {
@@ -385,6 +489,7 @@ func toDoc(l *lead.Lead) bson.M {
 		"semantic_category":    l.SemanticCategory(),
 		"merchant_id":          l.MerchantID(),
 		"status":               string(l.Status()),
+		"qualification_source": string(l.QualificationSource()),
 		"score":                l.Score(),
 		"user_feedback":        l.UserFeedback(),
 		"category_assigned_at": l.CategoryAssignedAt(),
@@ -402,6 +507,7 @@ func fromDoc(d leadDoc) *lead.Lead {
 		d.SemanticCategory,
 		d.MerchantID,
 		lead.Status(d.Status),
+		lead.QualificationSource(d.QualificationSource),
 		d.Score,
 		d.UserFeedback,
 		d.CategoryAssignedAt,

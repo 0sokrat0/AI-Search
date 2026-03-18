@@ -77,6 +77,14 @@ func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 		if text == "" {
 			continue
 		}
+		if strings.TrimSpace(m.SenderUsername) == "" {
+			h.log.Debug("message skipped: sender has no direct username",
+				zap.Int64("sender_id", m.SenderID),
+				zap.Int64("peer_id", m.PeerID),
+				zap.Int64("message_id", m.MessageID),
+			)
+			continue
+		}
 
 		if h.isTeamMember(ctx, m.SenderID) {
 			continue
@@ -204,6 +212,7 @@ func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 				if merchantID != "" {
 					l.SetMerchant(merchantID)
 				}
+				l.MarkAsAIQualified()
 
 				if semanticDirection != nil {
 					l.SetSemanticDirection(*semanticDirection)
@@ -234,6 +243,9 @@ func (h *IngestHandler) maybeCleanupOldNoise(ctx context.Context) {
 		noiseTTL     = 72 * time.Hour
 	)
 	now := time.Now()
+	if h.settings != nil && !h.settings.GetBool(ctx, "noise_cleanup_enabled", true) {
+		return
+	}
 
 	h.cleanupMu.Lock()
 	if !h.lastCleanupAt.IsZero() && now.Sub(h.lastCleanupAt) < cleanupEvery {

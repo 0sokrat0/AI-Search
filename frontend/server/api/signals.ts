@@ -7,9 +7,10 @@ export default eventHandler(async (event) => {
   const offset = Number(query.offset || 0)
   const tab = typeof query.tab === 'string' ? query.tab : undefined
   const category = typeof query.category === 'string' ? query.category : undefined
+  const showArchived = query.show_archived
 
   return await proxyBackendData<SignalItem[]>(event, '/api/v1/signals/inbox', {
     method: 'GET',
-    query: { limit, offset, tab, category }
+    query: { limit, offset, tab, category, show_archived: showArchived }
   })
 })

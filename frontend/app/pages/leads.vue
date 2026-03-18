@@ -36,7 +36,7 @@ const columnVisibility = ref<Record<string, boolean>>({
 })
 const rowSelection = ref({})
 const statusFilter = ref('all')
-const categoryFilter = ref<'all' | 'leads' | 'traders' | 'merchants' | 'ps_offers' | 'noise'>('all')
+const categoryFilter = ref<'all' | 'traders' | 'merchants' | 'ps_offers'>('all')
 const leadScope = ref<'in_work' | 'archive'>('in_work')
 const bulkLoading = ref(false)
 const bulkStatus = ref<LeadStatus>('qualified')
@@ -48,7 +48,10 @@ const companySelectItems = computed(() => companies.value.map(c => ({ label: c.n
 const { data: leadsRaw, isPending } = useAuthQuery<Lead[]>(
   computed(() => ['leads', categoryFilter.value]),
   () => $fetch<Lead[]>('/api/leads', {
-    query: { category: categoryFilter.value === 'all' ? undefined : categoryFilter.value }
+    query: {
+      category: categoryFilter.value === 'all' ? undefined : categoryFilter.value,
+      qualified_only: true
+    }
   }),
   { refetchInterval: 60_000, staleTime: 15_000 }
 )
@@ -57,7 +60,7 @@ const data = computed(() => leadsRaw.value ?? [])
 const scopedLeads = computed(() => {
   return leadScope.value === 'archive'
     ? data.value.filter(l => l.status === 'converted' || l.status === 'rejected' || l.status === 'false_positive')
-    : data.value.filter(l => l.status === 'new' || l.status === 'contacted' || l.status === 'qualified' || l.status === 'detected' || l.status === 'confirmed' || l.status === 'controversial')
+    : data.value.filter(l => l.status !== 'converted' && l.status !== 'rejected' && l.status !== 'false_positive')
 })
 
 const groupedScopedLeads = computed<GroupedLead[]>(() => {
@@ -100,19 +103,25 @@ const statusLabel: Record<LeadStatus, string> = {
 }
 
 const categoryLabel: Record<string, string> = {
-  leads: 'Лиды',
   traders: 'Трейдеры',
   merchants: 'Мерчанты',
-  ps_offers: 'Предложения от ПС',
-  noise: 'Шум'
+  ps_offers: 'Предложения от ПС'
 }
 
 const categoryColor: Record<string, 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'info'> = {
-  leads: 'primary',
   traders: 'success',
   merchants: 'info',
-  ps_offers: 'info',
-  noise: 'neutral'
+  ps_offers: 'info'
+}
+
+const qualificationSourceLabel: Record<string, string> = {
+  ai_qualified: 'Квалифицировано ИИ',
+  manual_approved: 'Ручной апрув'
+}
+
+const qualificationSourceColor: Record<string, 'primary' | 'success' | 'info' | 'neutral'> = {
+  ai_qualified: 'info',
+  manual_approved: 'success'
 }
 
 function openLead(id: string) {
@@ -264,9 +273,6 @@ const columns: TableColumn<GroupedLead>[] = [
     accessorKey: 'chatTitle',
     header: 'Чат',
     cell: ({ row }) => {
-      if (leadScope.value === 'radar') {
-        return h('span', { class: 'truncate max-w-24 text-xs text-muted' }, row.original.chatTitle || '—')
-      }
       const grouped = row.original as GroupedLead
       const titles = grouped.chatTitles?.length ? grouped.chatTitles : [row.original.chatTitle].filter(Boolean)
       if (!titles.length) return '—'
@@ -278,10 +284,23 @@ const columns: TableColumn<GroupedLead>[] = [
     }
   },
   {
+    accessorKey: 'qualificationSource',
+    header: 'Источник',
+    cell: ({ row }) => {
+      const source = String(row.original.qualificationSource || '')
+      if (!source) return '—'
+      return h(UBadge, {
+        color: qualificationSourceColor[source] || 'neutral',
+        variant: 'soft'
+      }, () => qualificationSourceLabel[source] || source)
+    }
+  },
+  {
     accessorKey: 'semanticCategory',
     header: 'Категория',
     cell: ({ row }) => {
-      const c = String(row.original.semanticCategory || 'leads')
+      const c = String(row.original.semanticCategory || '')
+      if (!c) return '—'
       return h(UBadge, {
         color: categoryColor[c] || 'neutral',
         variant: 'subtle'
@@ -303,10 +322,7 @@ const columns: TableColumn<GroupedLead>[] = [
   {
     id: 'nextAction',
     header: 'Следующий шаг',
-    cell: ({ row }) => {
-      if (leadScope.value === 'radar') return null
-      return h(UBadge, { color: 'neutral', variant: 'subtle' }, () => nextActionLabel(row.original.status))
-    }
+    cell: ({ row }) => h(UBadge, { color: 'neutral', variant: 'subtle' }, () => nextActionLabel(row.original.status))
   },
   {
     accessorKey: 'status',
@@ -320,26 +336,17 @@ const columns: TableColumn<GroupedLead>[] = [
   {
     accessorKey: 'signalsCount',
     header: 'Сигналы',
-    cell: ({ row }) => {
-      if (leadScope.value === 'radar') return null
-      return row.original.signalsCount ?? 1
-    }
+    cell: ({ row }) => row.original.signalsCount ?? 1
   },
   {
     accessorKey: 'geo',
     header: 'Гео',
-    cell: ({ row }) => {
-      if (leadScope.value === 'radar') return null
-      return (row.original.geo ?? []).join(', ')
-    }
+    cell: ({ row }) => (row.original.geo ?? []).join(', ')
   },
   {
     accessorKey: 'lastSeenAt',
     header: 'Последний',
-    cell: ({ row }) => {
-      if (leadScope.value === 'radar') return null
-      return formatLastSeen(row.original.lastSeenAt)
-    }
+    cell: ({ row }) => formatLastSeen(row.original.lastSeenAt)
   },
   {
     id: 'actions',
@@ -347,35 +354,6 @@ const columns: TableColumn<GroupedLead>[] = [
       'div',
       { class: 'flex items-center justify-end gap-1' },
       [
-        leadScope.value === 'radar' ? h('div', { class: 'flex gap-1 mr-2' }, [
-          h(UButton, {
-            icon: 'i-lucide-check',
-            color: 'success',
-            variant: 'ghost',
-            size: 'sm',
-            square: true,
-            title: 'Подтвердить (Confirmed)',
-            onClick: () => updateLeadStatus(row.original.id, 'confirmed')
-          }),
-          h(UButton, {
-            icon: 'i-lucide-help-circle',
-            color: 'warning',
-            variant: 'ghost',
-            size: 'sm',
-            square: true,
-            title: 'Спорный (Controversial)',
-            onClick: () => updateLeadStatus(row.original.id, 'controversial')
-          }),
-          h(UButton, {
-            icon: 'i-lucide-x',
-            color: 'error',
-            variant: 'ghost',
-            size: 'sm',
-            square: true,
-            title: 'Ложный (False Positive)',
-            onClick: () => updateLeadStatus(row.original.id, 'false_positive')
-          })
-        ]) : null,
         h(UButton, {
           icon: 'i-lucide-eye',
           color: 'neutral',
@@ -409,6 +387,10 @@ watch(() => statusFilter.value, (newVal) => {
   } else {
     statusColumn.setFilterValue(newVal)
   }
+})
+
+watch([categoryFilter, leadScope, statusFilter], () => {
+  pagination.value.pageIndex = 0
 })
 
 const contact = computed({
@@ -510,7 +492,7 @@ function exportCSV() {
 
   <UDashboardPanel v-else id="leads">
     <template #header>
-      <UDashboardNavbar title="Лиды">
+      <UDashboardNavbar title="Квалифицированные лиды">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -538,12 +520,10 @@ function exportCSV() {
           <USelect
             v-model="categoryFilter"
             :items="[
-              { label: 'Все типы сигналов', value: 'all' },
-              { label: 'Только Лиды', value: 'leads' },
+              { label: 'Все типы', value: 'all' },
               { label: 'Трейдеры (P2P)', value: 'traders' },
               { label: 'Мерчанты (Интеграция)', value: 'merchants' },
-              { label: 'Предложения от ПС', value: 'ps_offers' },
-              { label: 'Шум / Спам', value: 'noise' }
+              { label: 'Предложения от ПС', value: 'ps_offers' }
             ]"
             class="min-w-52"
           />
@@ -687,7 +667,7 @@ function exportCSV() {
         </div>
 
         <UPagination
-          :default-page="(table?.tableApi?.getState().pagination.pageIndex || 0) + 1"
+          :page="(table?.tableApi?.getState().pagination.pageIndex || 0) + 1"
           :items-per-page="table?.tableApi?.getState().pagination.pageSize"
           :total="table?.tableApi?.getFilteredRowModel().rows.length"
           @update:page="(p: number) => table?.tableApi?.setPageIndex(p - 1)"

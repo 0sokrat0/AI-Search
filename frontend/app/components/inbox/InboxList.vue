@@ -188,7 +188,7 @@ defineShortcuts({
           </span>
         </div>
 
-        <div v-if="mail.isTeamMember || mail.isIgnored || mail.otherChatsCount > 1" class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+        <div v-if="mail.isTeamMember || mail.isIgnored || (mail.showMultiAccountBadges !== false && mail.otherChatsCount > 1)" class="flex items-center gap-1.5 mt-1.5 flex-wrap">
           <UBadge
             v-if="mail.isTeamMember"
             icon="i-lucide-users"
@@ -206,7 +206,7 @@ defineShortcuts({
             size="xs"
           />
           <UBadge
-            v-if="mail.otherChatsCount > 1"
+            v-if="mail.showMultiAccountBadges !== false && mail.otherChatsCount > 1"
             icon="i-lucide-messages-square"
             :label="`${mail.otherChatsCount} чатов`"
             color="warning"

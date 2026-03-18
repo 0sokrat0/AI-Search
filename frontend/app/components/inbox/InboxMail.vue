@@ -51,8 +51,12 @@ const leadData = computed<Lead | null>(() => {
   return brief?.lead ?? null
 })
 
-const leadStatusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral'> = {
+const leadStatusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'info'> = {
   new: 'primary',
+  detected: 'info',
+  confirmed: 'success',
+  controversial: 'warning',
+  false_positive: 'error',
   contacted: 'warning',
   qualified: 'success',
   converted: 'success',
@@ -60,6 +64,10 @@ const leadStatusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'e
 }
 const leadStatusLabel: Record<LeadStatus, string> = {
   new: 'Новый',
+  detected: 'Обнаружен',
+  confirmed: 'Подтвержден',
+  controversial: 'Спорный',
+  false_positive: 'Ложный',
   contacted: 'Первичный контакт',
   qualified: 'В работе',
   converted: 'Подключен',
@@ -506,7 +514,7 @@ function formatDateSafe(value?: string | null): string {
           variant="subtle"
           size="xs"
         />
-        <UTooltip v-if="mail.otherChatsCount > 1" text="Встречался в нескольких чатах">
+        <UTooltip v-if="mail.showMultiAccountBadges !== false && mail.otherChatsCount > 1" text="Встречался в нескольких чатах">
           <UBadge
             icon="i-lucide-messages-square"
             :label="`${mail.otherChatsCount} чатов`"

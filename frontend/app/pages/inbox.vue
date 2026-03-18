@@ -18,22 +18,30 @@ const tabItems: Array<{ label: string, value: InboxTab }> = [{
   value: 'lead'
 }]
 
-const categoryItems: Array<{ label: string, value: SignalCategoryFilter }> = [{
-  label: 'Все теги',
-  value: 'all'
-}, {
-  label: 'Мерч',
-  value: 'merchants'
-}, {
-  label: 'Трейдер/Поиск трейдеров',
-  value: 'traders'
-}, {
-  label: 'Предложение ПС',
-  value: 'ps_offers'
-}, {
-  label: 'Шум',
-  value: 'noise'
-}]
+const categoryItems = computed<Array<{ label: string, value: SignalCategoryFilter }>>(() => {
+  const items: Array<{ label: string, value: SignalCategoryFilter }> = [{
+    label: 'Все теги',
+    value: 'all'
+  }, {
+    label: 'Мерч',
+    value: 'merchants'
+  }, {
+    label: 'Трейдер/Поиск трейдеров',
+    value: 'traders'
+  }, {
+    label: 'Предложение ПС',
+    value: 'ps_offers'
+  }]
+
+  if (selectedTab.value !== 'lead') {
+    items.push({
+      label: 'Шум',
+      value: 'noise'
+    })
+  }
+
+  return items
+})
 
 const selectedTab = ref<InboxTab>('all')
 const selectedCategory = ref<SignalCategoryFilter>('all')
@@ -62,6 +70,9 @@ const { data: signalsRaw, isPending } = useAuthQuery<SignalItem[]>(
 )
 
 const signals = computed(() => signalsRaw.value ?? [])
+const { data: appSettings } = await useFetch('/api/settings', {
+  default: () => ({ show_multi_account_badges: 'true' })
+})
 
 function isInboxTab(value: unknown): value is InboxTab {
   return value === 'all' || value === 'lead'
@@ -125,6 +136,7 @@ const allMailboxSignals = computed<Mail[]>(() => {
     isSpamSender: signal.isSpamSender ?? false,
     isDm: signal.isDm,
     otherChatsCount: signal.otherChatsCount,
+    showMultiAccountBadges: appSettings.value?.show_multi_account_badges !== 'false',
     category: normalizeMailCategory(signal.semanticCategory),
     categoryReason: signal.classificationReason ?? ''
   }))
@@ -212,6 +224,10 @@ watch(
 )
 
 watch([selectedTab, selectedCategory], ([tab, category]) => {
+  if (tab === 'lead' && category === 'noise') {
+    selectedCategory.value = 'all'
+    return
+  }
   const nextQuery = {
     ...route.query,
     tab,

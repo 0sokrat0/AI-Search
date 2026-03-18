@@ -6,7 +6,8 @@ export default eventHandler(async (event) => {
   const rows = await proxyBackendData<any[]>(event, '/api/v1/leads', {
     method: 'GET',
     query: {
-      category: query.category
+      category: query.category,
+      qualified_only: query.qualified_only ?? true
     }
   })
   return rows.map((row) => {

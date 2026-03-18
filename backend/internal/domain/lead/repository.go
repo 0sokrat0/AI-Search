@@ -25,15 +25,20 @@ type Repository interface {
 }
 
 type Stats struct {
-	Period           string        `json:"period"`
-	TotalDetected    int64         `json:"totalDetected"`
-	Approved         int64         `json:"approved"`
-	Rejected         int64         `json:"rejected"`
-	Pending          int64         `json:"pending"`
-	AvgScore         float64       `json:"avgScore"`
-	AvgScoreApproved float64       `json:"avgScoreApproved"`
-	AvgScoreRejected float64       `json:"avgScoreRejected"`
-	Buckets          []ScoreBucket `json:"buckets"`
+	Period             string                 `json:"period"`
+	TotalDetected      int64                  `json:"totalDetected"`
+	Approved           int64                  `json:"approved"`
+	Rejected           int64                  `json:"rejected"`
+	Pending            int64                  `json:"pending"`
+	AIQualified        int64                  `json:"aiQualified"`
+	ManualApproved     int64                  `json:"manualApproved"`
+	AvgScore           float64                `json:"avgScore"`
+	AvgScoreApproved   float64                `json:"avgScoreApproved"`
+	AvgScoreRejected   float64                `json:"avgScoreRejected"`
+	Buckets            []ScoreBucket          `json:"buckets"`
+	ApprovedByCategory CategoryDistribution   `json:"approvedByCategory"`
+	RejectedByCategory CategoryDistribution   `json:"rejectedByCategory"`
+	Series             []CategorySeriesBucket `json:"series"`
 }
 
 type ScoreBucket struct {
@@ -42,6 +47,19 @@ type ScoreBucket struct {
 	Count    int64   `json:"count"`
 	Approved int64   `json:"approved"`
 	Rejected int64   `json:"rejected"`
+}
+
+type CategoryDistribution struct {
+	Traders   int64 `json:"traders"`
+	Merchants int64 `json:"merchants"`
+	PSOffers  int64 `json:"psOffers"`
+}
+
+type CategorySeriesBucket struct {
+	Day       string `json:"day"`
+	Traders   int64  `json:"traders"`
+	Merchants int64  `json:"merchants"`
+	PSOffers  int64  `json:"psOffers"`
 }
 
 type ListFilter struct {
@@ -53,6 +71,7 @@ type ListFilter struct {
 	FromDate          *time.Time
 	ToDate            *time.Time
 	Reviewed          *bool
+	QualifiedOnly     bool
 	Limit             int
 	Offset            int
 }

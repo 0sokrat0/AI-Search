@@ -15,7 +15,9 @@ const { data: settings, refresh } = await useFetch<AppSettings>('/api/settings',
     sender_window_seconds: '60',
     trader_threshold: '0.60',
     merchant_threshold: '0.60',
-    ps_offer_threshold: '0.60'
+    ps_offer_threshold: '0.60',
+    noise_cleanup_enabled: 'true',
+    show_multi_account_badges: 'true'
   })
 })
 
@@ -35,6 +37,8 @@ const traderThreshold = ref(0.60)
 const merchantThreshold = ref(0.60)
 const psOfferThreshold = ref(0.60)
 const ignoreKeywords = ref<string[]>([])
+const noiseCleanupEnabled = ref(true)
+const showMultiAccountBadges = ref(true)
 watch(settings, (next) => {
   if (!next) return
   leadThreshold.value = sliderToNumber(next.lead_threshold, 0.70)
@@ -46,6 +50,8 @@ watch(settings, (next) => {
     .split(',')
     .map(s => s.trim())
     .filter(Boolean)
+  noiseCleanupEnabled.value = next.noise_cleanup_enabled !== 'false'
+  showMultiAccountBadges.value = next.show_multi_account_badges !== 'false'
 }, { immediate: true })
 
 const saving = ref(false)
@@ -62,7 +68,9 @@ async function save() {
     trader_threshold: clamp(sliderToNumber(traderThreshold.value, 0.60), 0.3, 0.99),
     merchant_threshold: clamp(sliderToNumber(merchantThreshold.value, 0.60), 0.3, 0.99),
     ps_offer_threshold: clamp(sliderToNumber(psOfferThreshold.value, 0.60), 0.3, 0.99),
-    ignore_keywords: ignoreKeywords.value.join(', ')
+    ignore_keywords: ignoreKeywords.value.join(', '),
+    noise_cleanup_enabled: String(noiseCleanupEnabled.value),
+    show_multi_account_badges: String(showMultiAccountBadges.value)
   }
 
   saving.value = true
@@ -130,6 +138,34 @@ async function save() {
             />
             <span class="font-mono text-sm w-10 text-right">{{ leadThreshold.toFixed(2) }}</span>
           </div>
+        </div>
+
+        <USeparator />
+
+        <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
+          <div class="flex-1">
+            <p class="font-medium text-sm">
+              Автоочистка шума
+            </p>
+            <p class="text-xs text-muted mt-1">
+              Включает периодическую очистку старых шумовых сигналов на backend.
+            </p>
+          </div>
+          <USwitch v-model="noiseCleanupEnabled" />
+        </div>
+
+        <USeparator />
+
+        <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">
+          <div class="flex-1">
+            <p class="font-medium text-sm">
+              Показывать сигналы из 2+ чатов
+            </p>
+            <p class="text-xs text-muted mt-1">
+              Управляет бейджами и служебной информацией о контактах, встречающихся в нескольких чатах.
+            </p>
+          </div>
+          <USwitch v-model="showMultiAccountBadges" />
         </div>
 
         <USeparator />

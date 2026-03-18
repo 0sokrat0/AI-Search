@@ -15,11 +15,13 @@ import (
 const collection = "settings"
 
 var defaults = map[string]string{
-	"lead_threshold":        "0.70",
-	"sender_window_seconds": "60",
-	"trader_threshold":      "0.60",
-	"merchant_threshold":    "0.60",
-	"ps_offer_threshold":    "0.60",
+	"lead_threshold":            "0.70",
+	"sender_window_seconds":     "60",
+	"trader_threshold":          "0.60",
+	"merchant_threshold":        "0.60",
+	"ps_offer_threshold":        "0.60",
+	"noise_cleanup_enabled":     "true",
+	"show_multi_account_badges": "true",
 }
 
 type settingDoc struct {
@@ -102,6 +104,25 @@ func (s *Store) GetString(ctx context.Context, key, def string) string {
 		return def
 	}
 	return v
+}
+
+func (s *Store) GetBool(ctx context.Context, key string, def bool) bool {
+	_ = s.warmUp(ctx)
+	s.mu.RLock()
+	v, ok := s.cache[key]
+	s.mu.RUnlock()
+	if !ok {
+		if dv, ok2 := defaults[key]; ok2 {
+			v = dv
+		} else {
+			return def
+		}
+	}
+	parsed, err := strconv.ParseBool(v)
+	if err != nil {
+		return def
+	}
+	return parsed
 }
 
 func (s *Store) warmUp(ctx context.Context) error {

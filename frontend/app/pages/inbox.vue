@@ -82,6 +82,7 @@ const {
 )
 
 const signals = computed<SignalItem[]>(() => (signalsPages.value?.pages as CursorPage<SignalItem>[] | undefined)?.flatMap((page: CursorPage<SignalItem>) => page.items) ?? [])
+const loadedSignalsCount = computed(() => mailboxSignals.value.length)
 const { data: appSettings } = await useFetch('/api/settings', {
   default: () => ({ show_multi_account_badges: 'true' })
 })
@@ -432,8 +433,23 @@ async function runSelectedNoiseCleanup() {
           <USkeleton class="h-14 w-full" />
           <USkeleton class="h-14 w-full" />
         </div>
-        <p v-else-if="hasNextPage" class="text-xs text-center text-muted">
-          Прокрутите ниже, чтобы загрузить ещё сигналы
+        <div v-else-if="hasNextPage" class="space-y-2">
+          <p class="text-xs text-center text-muted">
+            Загружено {{ loadedSignalsCount }} сигналов. Это не весь список.
+          </p>
+          <div class="flex justify-center">
+            <UButton
+              size="sm"
+              color="neutral"
+              variant="soft"
+              @click="fetchNextPage()"
+            >
+              Загрузить ещё сигналы
+            </UButton>
+          </div>
+        </div>
+        <p v-else class="text-xs text-center text-muted">
+          Показаны все загруженные сигналы: {{ loadedSignalsCount }}
         </p>
       </div>
     </div>

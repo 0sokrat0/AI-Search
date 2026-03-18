@@ -73,6 +73,7 @@ const {
   }
 )
 const data = computed<Lead[]>(() => (leadPages.value?.pages as CursorPage<Lead>[] | undefined)?.flatMap((page: CursorPage<Lead>) => page.items) ?? [])
+const loadedLeadsCount = computed(() => groupedScopedLeads.value.length)
 
 const chatItems = computed(() => {
   const counts = new Map<string, number>()
@@ -685,8 +686,23 @@ function exportCSV() {
           <USkeleton class="h-12 w-full" />
           <USkeleton class="h-12 w-full" />
         </div>
-        <p v-else-if="hasNextPage" class="text-xs text-center text-muted">
-          Прокрутите ниже, чтобы загрузить ещё лиды
+        <div v-else-if="hasNextPage" class="space-y-2">
+          <p class="text-xs text-center text-muted">
+            Загружено {{ loadedLeadsCount }} лидов. Это не весь список.
+          </p>
+          <div class="flex justify-center">
+            <UButton
+              size="sm"
+              color="neutral"
+              variant="soft"
+              @click="fetchNextPage()"
+            >
+              Загрузить ещё лиды
+            </UButton>
+          </div>
+        </div>
+        <p v-else class="text-xs text-center text-muted">
+          Показаны все загруженные лиды: {{ loadedLeadsCount }}
         </p>
       </div>
     </template>

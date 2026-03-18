@@ -185,9 +185,9 @@ const categoryColor = computed<'info' | 'primary' | 'neutral'>(() => {
 
 const bestBusinessMatch = computed(() => {
   const candidates = [
-    { label: 'Трейдеры / Поиск трейдеров', score: Number(props.mail.traderScore ?? 0) },
+    { label: 'Трейдеры', score: Number(props.mail.traderScore ?? 0) },
     { label: 'Мерчанты', score: Number(props.mail.merchantScore ?? 0) },
-    { label: 'Предложения от ПС', score: Number(props.mail.psOfferScore ?? 0) }
+    { label: 'ПС', score: Number(props.mail.psOfferScore ?? 0) }
   ]
 
   const best = candidates.sort((a, b) => b.score - a.score)[0]
@@ -536,7 +536,7 @@ function formatDateSafe(value?: string | null): string {
     <div class="flex-1 p-4 sm:p-6 overflow-y-auto">
       <div v-if="bestBusinessMatch" class="mb-4 rounded-xl border border-default bg-elevated/30 p-4">
         <div class="flex items-center justify-between gap-3 text-sm">
-          <span class="font-medium text-highlighted">Похожесть на {{ bestBusinessMatch.label }}</span>
+          <span class="font-medium text-highlighted">{{ bestBusinessMatch.label }}</span>
           <span class="font-mono text-sm">{{ bestBusinessMatch.percent }}%</span>
         </div>
         <div class="mt-2 h-2 overflow-hidden rounded-full bg-muted">

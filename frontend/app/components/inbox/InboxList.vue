@@ -53,9 +53,9 @@ function categoryColor(category?: string | null): 'success' | 'info' | 'warning'
 
 function bestBusinessMatch(mail: Mail): { label: string, percent: number } | null {
   const candidates = [
-    { label: 'Трейдеры / Поиск трейдеров', score: Number(mail.traderScore ?? 0) },
+    { label: 'Трейдеры', score: Number(mail.traderScore ?? 0) },
     { label: 'Мерчанты', score: Number(mail.merchantScore ?? 0) },
-    { label: 'Предложения от ПС', score: Number(mail.psOfferScore ?? 0) }
+    { label: 'ПС', score: Number(mail.psOfferScore ?? 0) }
   ]
 
   const best = candidates.sort((a, b) => b.score - a.score)[0]
@@ -174,7 +174,7 @@ defineShortcuts({
           />
           <UBadge
             v-if="bestBusinessMatch(mail)"
-            :label="`Похоже на ${bestBusinessMatch(mail)?.label}: ${bestBusinessMatch(mail)?.percent}%`"
+            :label="`${bestBusinessMatch(mail)?.label} ${bestBusinessMatch(mail)?.percent}%`"
             color="neutral"
             variant="soft"
             size="xs"

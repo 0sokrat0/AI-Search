@@ -107,6 +107,18 @@ function shortCategoryLabel(category?: string | null): string {
 
 const leadScorePercent = computed(() => Math.min(Math.round((lead.value?.score ?? 0) * 100), 100))
 const leadScoreTitle = computed(() => `${shortCategoryLabel(lead.value?.semanticCategory)} ${leadScorePercent.value}%`)
+const leadMatchBarClass = computed(() => {
+  switch (String(lead.value?.semanticCategory || '').toLowerCase()) {
+    case 'traders':
+      return 'bg-emerald-500'
+    case 'merchants':
+      return 'bg-sky-500'
+    case 'ps_offers':
+      return 'bg-indigo-500'
+    default:
+      return 'bg-zinc-400'
+  }
+})
 
 function buildContactHref(raw?: string | null): string {
   const value = String(raw || '').trim()
@@ -312,86 +324,6 @@ watch(lead, (value) => {
       </div>
 
       <div v-else class="space-y-4">
-
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between gap-2">
-              <h3 class="font-semibold">
-                Карточка сигнала
-              </h3>
-              <div class="flex items-center gap-2">
-                <UBadge
-                  :color="categoryColor[String(lead.semanticCategory || 'leads')] || 'neutral'"
-                  variant="soft"
-                >
-                  {{ categoryLabel[String(lead.semanticCategory || 'leads')] || lead.semanticCategory }}
-                </UBadge>
-                <UBadge
-                  v-if="lead.qualificationSource"
-                  color="info"
-                  variant="soft"
-                >
-                  {{ qualificationSourceLabel[lead.qualificationSource] || lead.qualificationSource }}
-                </UBadge>
-              </div>
-            </div>
-          </template>
-
-          <div class="flex flex-wrap gap-2 items-center">
-            <div class="flex items-center gap-2">
-              <USelect
-                v-model="selectedCategory"
-                :items="categorySelectItems"
-                icon="i-lucide-tag"
-                class="min-w-44"
-              />
-              <UButton
-                label="Сменить тип"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                :loading="updatingCategory"
-                :disabled="selectedCategory === lead.semanticCategory"
-                @click="updateCategory"
-              />
-            </div>
-          </div>
-          <p class="text-xs text-muted mt-3 flex items-center gap-1.5 border-t border-default pt-3">
-            Один лид здесь = один конкретный сигнал. Контакт используется только как источник и связь между сообщениями.
-          </p>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between gap-2">
-              <h3 class="font-semibold text-sm">
-                {{ leadScoreTitle }}
-              </h3>
-              <div class="flex-1 max-w-xs bg-muted/30 rounded-full h-1.5 ml-4">
-                <div
-                  class="h-1.5 rounded-full bg-primary transition-all"
-                  :style="`width: ${leadScorePercent}%`"
-                />
-              </div>
-            </div>
-          </template>
-
-          <div class="flex flex-wrap gap-2">
-            <UButton
-              v-for="s in (['new', 'contacted', 'qualified', 'converted', 'rejected'] as LeadStatus[])"
-              :key="s"
-              :color="lead.status === s ? statusColor[s] : 'neutral'"
-              :variant="lead.status === s ? 'soft' : 'ghost'"
-              size="xs"
-              @click="setStatus(s)"
-            >
-              {{ statusLabel[s] }}
-            </UButton>
-          </div>
-        </UCard>
-
-        <!-- Removed separate category card as it's merged above -->
-
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
@@ -404,72 +336,122 @@ watch(lead, (value) => {
             </div>
           </template>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div>
-              <p class="text-muted text-xs">
-                Контакт
-              </p>
-              <div class="flex items-center gap-1.5 mt-0.5">
-                <span>{{ lead.contact || '—' }}</span>
-                <UButton
-                  v-if="contactHref"
-                  :href="contactHref"
-                  target="_blank"
-                  icon="i-lucide-send"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
+          <div class="space-y-4">
+            <div class="flex flex-wrap items-center gap-2">
+              <UBadge
+                :color="categoryColor[String(lead.semanticCategory || 'leads')] || 'neutral'"
+                variant="soft"
+              >
+                {{ categoryLabel[String(lead.semanticCategory || 'leads')] || lead.semanticCategory }}
+              </UBadge>
+              <UBadge
+                v-if="lead.qualificationSource"
+                color="info"
+                variant="soft"
+              >
+                {{ qualificationSourceLabel[lead.qualificationSource] || lead.qualificationSource }}
+              </UBadge>
+              <UBadge
+                :color="statusColor[lead.status]"
+                variant="subtle"
+              >
+                {{ statusLabel[lead.status] }}
+              </UBadge>
+            </div>
+
+            <div class="rounded-xl border border-default bg-elevated/30 p-4">
+              <div class="flex items-center justify-between gap-3 text-sm">
+                <span class="font-medium text-highlighted">{{ leadScoreTitle }}</span>
+                <span class="font-mono text-sm">{{ leadScorePercent }}%</span>
+              </div>
+              <div class="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  class="h-full rounded-full transition-all"
+                  :class="leadMatchBarClass"
+                  :style="{ width: `${leadScorePercent}%` }"
                 />
               </div>
             </div>
-            <div>
-              <p class="text-muted text-xs">
-                Чат
-              </p>
-              <p class="mt-0.5">
-                {{ lead.chatTitle || '—' }}
-              </p>
-            </div>
-            <div>
-              <p class="text-muted text-xs">
-                Сигналов
-              </p>
-              <p class="text-lg font-semibold mt-0.5">
-                {{ briefData?.signalsCount ?? 0 }}
-              </p>
-            </div>
-            <div v-if="lead.geo.length">
-              <p class="text-muted text-xs">
-                Гео
-              </p>
-              <div class="flex flex-wrap gap-1 mt-0.5">
-                <UBadge
-                  v-for="g in lead.geo"
-                  :key="g"
-                  color="neutral"
-                  variant="soft"
-                  size="sm"
-                >
-                  {{ g }}
-                </UBadge>
+
+            <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <p class="text-xs text-muted">
+                  Контакт
+                </p>
+                <div class="mt-0.5 flex items-center gap-1.5">
+                  <span>{{ lead.contact || '—' }}</span>
+                  <UButton
+                    v-if="contactHref"
+                    :href="contactHref"
+                    target="_blank"
+                    icon="i-lucide-send"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                  />
+                </div>
+              </div>
+              <div>
+                <p class="text-xs text-muted">
+                  Чат
+                </p>
+                <p class="mt-0.5">
+                  {{ lead.chatTitle || '—' }}
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-muted">
+                  Сигналов
+                </p>
+                <p class="mt-0.5 text-lg font-semibold">
+                  {{ briefData?.signalsCount ?? 0 }}
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-muted">
+                  Дата сигнала
+                </p>
+                <p class="mt-0.5">
+                  {{ formatDateSafe(lead.categoryAssignedAt || lead.lastSeenAt) }}
+                </p>
+              </div>
+              <div v-if="lead.geo.length">
+                <p class="text-xs text-muted">
+                  Гео
+                </p>
+                <div class="mt-0.5 flex flex-wrap gap-1">
+                  <UBadge
+                    v-for="g in lead.geo"
+                    :key="g"
+                    color="neutral"
+                    variant="soft"
+                    size="sm"
+                  >
+                    {{ g }}
+                  </UBadge>
+                </div>
+              </div>
+              <div v-if="lead.products.length">
+                <p class="text-xs text-muted">
+                  Продукты
+                </p>
+                <div class="mt-0.5 flex flex-wrap gap-1">
+                  <UBadge
+                    v-for="p in lead.products"
+                    :key="p"
+                    color="primary"
+                    variant="soft"
+                    size="sm"
+                  >
+                    {{ p }}
+                  </UBadge>
+                </div>
               </div>
             </div>
-            <div v-if="lead.products.length">
-              <p class="text-muted text-xs">
-                Продукты
-              </p>
-              <div class="flex flex-wrap gap-1 mt-0.5">
-                <UBadge
-                  v-for="p in lead.products"
-                  :key="p"
-                  color="primary"
-                  variant="soft"
-                  size="sm"
-                >
-                  {{ p }}
-                </UBadge>
-              </div>
-            </div>
+
+            <p class="flex items-center gap-1.5 border-t border-default pt-3 text-xs text-muted">
+              Один лид здесь = один конкретный сигнал. Контакт используется только как источник и связь между сообщениями.
+            </p>
           </div>
         </UCard>
 
@@ -477,7 +459,7 @@ watch(lead, (value) => {
           <template #header>
             <div class="flex items-center justify-between">
               <h3 class="font-semibold">
-                Привязка к компании
+                Компания
               </h3>
               <UBadge
                 v-if="companyName !== '—'"
@@ -488,6 +470,28 @@ watch(lead, (value) => {
               >
                 {{ companyName }}
               </UBadge>
+            </div>
+          </template>
+
+          <div class="space-y-2">
+            <p class="text-sm text-highlighted">
+              {{ companyName !== '—' ? companyName : 'Компания пока не привязана' }}
+            </p>
+            <p class="text-xs text-muted">
+              Здесь показывается текущая компания, если сигнал уже к ней привязан.
+            </p>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold">
+                Привязка к компании
+              </h3>
+              <p class="text-xs text-muted">
+                Выбор или создание новой компании
+              </p>
             </div>
           </template>
 
@@ -541,6 +545,57 @@ watch(lead, (value) => {
                 </div>
               </template>
             </UModal>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="font-semibold">
+                Воронка и тип сигнала
+              </h3>
+              <UBadge
+                :color="categoryColor[String(lead.semanticCategory || 'leads')] || 'neutral'"
+                variant="soft"
+              >
+                {{ categoryLabel[String(lead.semanticCategory || 'leads')] || lead.semanticCategory }}
+              </UBadge>
+            </div>
+          </template>
+
+          <div class="space-y-4">
+            <div class="flex flex-wrap gap-2">
+              <UButton
+                v-for="s in (['new', 'contacted', 'qualified', 'converted', 'rejected'] as LeadStatus[])"
+                :key="s"
+                :color="lead.status === s ? statusColor[s] : 'neutral'"
+                :variant="lead.status === s ? 'soft' : 'ghost'"
+                size="xs"
+                @click="setStatus(s)"
+              >
+                {{ statusLabel[s] }}
+              </UButton>
+            </div>
+
+            <div class="border-t border-default pt-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <USelect
+                  v-model="selectedCategory"
+                  :items="categorySelectItems"
+                  icon="i-lucide-tag"
+                  class="min-w-44"
+                />
+                <UButton
+                  label="Сменить тип"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  :loading="updatingCategory"
+                  :disabled="selectedCategory === lead.semanticCategory"
+                  @click="updateCategory"
+                />
+              </div>
+            </div>
           </div>
         </UCard>
 

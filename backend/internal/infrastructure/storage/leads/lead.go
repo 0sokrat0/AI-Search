@@ -474,6 +474,20 @@ func buildFilter(tenantID string, f lead.ListFilter) bson.M {
 	if f.MerchantID != nil {
 		q["merchant_id"] = *f.MerchantID
 	}
+	if f.SemanticCategory != nil {
+		switch strings.ToLower(strings.TrimSpace(*f.SemanticCategory)) {
+		case "merchant", "merchants", "merch", "processing_request", "processing_requests", "processing":
+			q["semantic_category"] = "merchants"
+		case "trader", "traders":
+			q["semantic_category"] = "traders"
+		case "ps_offer", "ps_offers", "offer", "offers":
+			q["semantic_category"] = "ps_offers"
+		case "noise":
+			q["semantic_category"] = "noise"
+		default:
+			q["semantic_category"] = *f.SemanticCategory
+		}
+	}
 	if f.SemanticDirection != nil {
 		switch strings.ToLower(strings.TrimSpace(*f.SemanticDirection)) {
 		case "merchant", "merchants", "merch", "processing_request", "processing_requests", "processing":

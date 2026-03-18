@@ -66,6 +66,7 @@ type CategorySeriesBucket struct {
 type ListFilter struct {
 	Status            *Status
 	MerchantID        *string
+	SemanticCategory  *string
 	SemanticDirection *string
 	ChatID            *int64
 	MinScore          *float64

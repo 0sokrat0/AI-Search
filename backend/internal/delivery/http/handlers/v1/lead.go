@@ -103,8 +103,8 @@ func (h *LeadHandler) GetLeads(c *fiber.Ctx) error {
 		f.MerchantID = &m
 	}
 	if cat := strings.TrimSpace(c.Query("category")); cat != "" {
-		if dir, ok := categoryToSemanticDirection(cat); ok {
-			f.SemanticDirection = &dir
+		if normalized, ok := normalizeSemanticCategory(cat); ok {
+			f.SemanticCategory = &normalized
 		}
 	}
 	if dir := strings.TrimSpace(c.Query("semantic_direction")); dir != "" {
@@ -124,6 +124,21 @@ func (h *LeadHandler) GetLeads(c *fiber.Ctx) error {
 		Items:      out,
 		NextCursor: page.NextCursor,
 	})
+}
+
+func normalizeSemanticCategory(category string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(category)) {
+	case "merchant", "merchants", "merch", "processing_request", "processing_requests", "processing":
+		return "merchants", true
+	case "trader", "traders":
+		return "traders", true
+	case "ps_offer", "ps_offers", "offer", "offers":
+		return "ps_offers", true
+	case "noise":
+		return "noise", true
+	default:
+		return "", false
+	}
 }
 
 func (h *LeadHandler) GetLeadBrief(c *fiber.Ctx) error {

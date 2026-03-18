@@ -14,14 +14,11 @@ const emits = defineEmits<{
 }>()
 
 const toast = useToast()
-const auth = useAuthStore()
-const canSeeTechnicalSignals = computed(() => auth.isSuperAdmin)
 
 const feedbackDone = ref<boolean | null>(null)
 const categoryFeedbackLoading = ref(false)
 const historyCollapsed = ref(true)
 
-const isIgnored = ref(props.mail.isIgnored)
 const isTeamMember = ref(props.mail.isTeamMember)
 const isSpamSender = ref(props.mail.isSpamSender ?? false)
 const flagLoading = ref<string | null>(null)
@@ -173,7 +170,6 @@ const otherSignals = computed(() =>
 watch(
   () => props.mail,
   (mail) => {
-    isIgnored.value = mail.isIgnored
     isTeamMember.value = mail.isTeamMember
     isSpamSender.value = mail.isSpamSender ?? false
     feedbackDone.value = null
@@ -201,44 +197,6 @@ const categoryColor = computed<'info' | 'primary' | 'neutral'>(() => {
       return 'info'
     case 'ps_offers': return 'primary'
     default: return 'neutral'
-  }
-})
-
-function normalizeDirection(value: string | null | undefined): string {
-  const normalized = String(value || '').trim().toLowerCase()
-  switch (normalized) {
-    case 'trader':
-    case 'traders':
-      return 'traders'
-    case 'merchant':
-    case 'merchants':
-    case 'merch':
-      return 'merchants'
-    case 'processing_request':
-    case 'processing_requests':
-    case 'request':
-      return 'merchants'
-    case 'ps_offer':
-    case 'ps_offers':
-    case 'offer':
-    case 'offers':
-      return 'ps_offers'
-    case 'noise':
-    case 'spam':
-      return 'noise'
-    default:
-      return normalized
-  }
-}
-
-const technicalDirectionLabel = computed(() => {
-  const direction = normalizeDirection(props.mail.semanticDirection)
-  switch (direction) {
-    case 'traders': return 'Трейдеры / Поиск трейдеров'
-    case 'merchants': return 'Мерчанты'
-    case 'ps_offers': return 'Предложения от ПС'
-    case 'noise': return 'Шум'
-    default: return ''
   }
 })
 
@@ -270,13 +228,17 @@ const leadPipelineColor = computed<'success' | 'warning' | 'neutral'>(() => {
   return 'warning'
 })
 
-const showTechnicalDirection = computed(() => {
-  if (!canSeeTechnicalSignals.value) return false
-  if (props.mail.category === 'noise') return false
-  if (!props.mail.semanticDirection) return false
-  const direction = normalizeDirection(props.mail.semanticDirection)
-  if (!direction || direction === 'noise') return false
-  return direction !== props.mail.category
+const matchBarClass = computed(() => {
+  switch (props.mail.category) {
+    case 'traders':
+      return 'bg-emerald-500'
+    case 'merchants':
+      return 'bg-sky-500'
+    case 'ps_offers':
+      return 'bg-indigo-500'
+    default:
+      return 'bg-zinc-400'
+  }
 })
 
 const telegramHref = computed(() => {
@@ -355,9 +317,7 @@ async function setFlag(field: 'is_ignored' | 'is_team_member' | 'is_spam_sender'
       method: 'POST',
       body: { field, value }
     })
-    if (field === 'is_ignored') {
-      isIgnored.value = value
-    } else if (field === 'is_team_member') {
+    if (field === 'is_team_member') {
       isTeamMember.value = value
     } else {
       isSpamSender.value = value
@@ -467,13 +427,6 @@ function formatDateSafe(value?: string | null): string {
           {{ categoryLabel }}
         </UBadge>
         <UBadge
-          v-if="bestBusinessMatch"
-          :label="`Похоже на ${bestBusinessMatch.label}: ${bestBusinessMatch.percent}%`"
-          color="neutral"
-          variant="soft"
-          size="xs"
-        />
-        <UBadge
           :label="leadPipelineLabel"
           :color="leadPipelineColor"
           variant="soft"
@@ -487,37 +440,6 @@ function formatDateSafe(value?: string | null): string {
           variant="subtle"
           size="xs"
         />
-        <UBadge
-          v-if="mail.isDm"
-          icon="i-heroicons-envelope"
-          label="Личное сообщение"
-          color="neutral"
-          variant="subtle"
-          size="xs"
-        />
-        <UBadge
-          :icon="isTeamMember ? 'i-lucide-users' : 'i-lucide-user'"
-          :label="isTeamMember ? 'Команда' : 'Внешний контакт'"
-          :color="isTeamMember ? 'info' : 'neutral'"
-          variant="subtle"
-          size="xs"
-        />
-        <UBadge
-          v-if="isIgnored"
-          icon="i-lucide-archive"
-          label="Архив"
-          color="warning"
-          variant="subtle"
-          size="xs"
-        />
-        <UBadge
-          v-if="isSpamSender"
-          icon="i-lucide-shield-off"
-          label="Спам-отправитель"
-          color="error"
-          variant="subtle"
-          size="xs"
-        />
         <UTooltip v-if="mail.showMultiAccountBadges !== false && mail.otherChatsCount > 1" text="Встречался в нескольких чатах">
           <UBadge
             icon="i-lucide-messages-square"
@@ -527,14 +449,6 @@ function formatDateSafe(value?: string | null): string {
             size="xs"
           />
         </UTooltip>
-        <UBadge
-          v-if="showTechnicalDirection"
-          icon="i-lucide-compass"
-          :label="technicalDirectionLabel"
-          color="info"
-          variant="subtle"
-          size="xs"
-        />
       </div>
     </div>
 
@@ -646,14 +560,22 @@ function formatDateSafe(value?: string | null): string {
     </div>
 
     <div class="flex-1 p-4 sm:p-6 overflow-y-auto">
-      <UAlert
-        v-if="bestBusinessMatch"
-        class="mb-4"
-        color="neutral"
-        variant="soft"
-        :title="`Похожесть: ${bestBusinessMatch.label} ${bestBusinessMatch.percent}%`"
-        :description="mail.leadId ? 'Сигнал уже вошёл в квалифицированные лиды.' : 'Это объясняет категорию сигнала, но не гарантирует попадание в квалифицированные лиды: lead-воронка считается отдельно.'"
-      />
+      <div v-if="bestBusinessMatch" class="mb-4 rounded-xl border border-default bg-elevated/30 p-4">
+        <div class="flex items-center justify-between gap-3 text-sm">
+          <span class="font-medium text-highlighted">Похожесть на {{ bestBusinessMatch.label }}</span>
+          <span class="font-mono text-sm">{{ bestBusinessMatch.percent }}%</span>
+        </div>
+        <div class="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+          <div
+            class="h-full rounded-full transition-all"
+            :class="matchBarClass"
+            :style="{ width: `${bestBusinessMatch.percent}%` }"
+          />
+        </div>
+        <p class="mt-2 text-xs text-muted">
+          {{ leadPipelineLabel }}
+        </p>
+      </div>
 
       <p class="whitespace-pre-wrap text-sm leading-relaxed">
         {{ mail.body }}

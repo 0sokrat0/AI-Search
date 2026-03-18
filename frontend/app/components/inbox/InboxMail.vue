@@ -69,23 +69,6 @@ const leadStatusLabel: Record<LeadStatus, string> = {
   converted: 'Подключен',
   rejected: 'Закрыт'
 }
-const leadCategoryColor: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'neutral'> = {
-  leads: 'primary',
-  traders: 'success',
-  merchants: 'info',
-  processing_requests: 'info',
-  ps_offers: 'info',
-  noise: 'neutral'
-}
-const leadCategoryLabel: Record<string, string> = {
-  leads: 'Лид',
-  traders: 'Трейдер/Поиск трейдеров',
-  merchants: 'Мерчант',
-  processing_requests: 'Мерчант',
-  ps_offers: 'Предложение ПС',
-  noise: 'Шум'
-}
-
 const { companies, loading: companiesLoading, addCompany, refresh: refreshCompanies } = useCompanies()
 
 const selectedCompanyId = ref('')
@@ -217,7 +200,7 @@ const bestBusinessMatch = computed(() => {
 })
 
 const leadPipelineLabel = computed(() => {
-  if (props.mail.category === 'noise') return 'Шум'
+  if (props.mail.category === 'noise') return ''
   if (props.mail.leadId) return 'Прошёл в квалифицированные лиды'
   return 'Категоризирован как сигнал, но не прошёл в лиды'
 })
@@ -427,6 +410,7 @@ function formatDateSafe(value?: string | null): string {
           {{ categoryLabel }}
         </UBadge>
         <UBadge
+          v-if="leadPipelineLabel"
           :label="leadPipelineLabel"
           :color="leadPipelineColor"
           variant="soft"
@@ -457,18 +441,8 @@ function formatDateSafe(value?: string | null): string {
 
       <div v-else class="space-y-2.5">
         <div class="flex items-center gap-1.5 flex-wrap">
-          <UIcon name="i-lucide-user-search" class="size-3.5 text-muted shrink-0" />
-          <span class="text-xs font-medium text-muted">Лид</span>
           <UBadge :color="leadStatusColor[leadData.status]" variant="subtle" size="xs">
             {{ leadStatusLabel[leadData.status] }}
-          </UBadge>
-          <UBadge
-            v-if="leadData.semanticCategory"
-            :color="leadCategoryColor[leadData.semanticCategory] ?? 'neutral'"
-            variant="soft"
-            size="xs"
-          >
-            {{ leadCategoryLabel[leadData.semanticCategory] ?? leadData.semanticCategory }}
           </UBadge>
           <div v-if="leadData.geo.length || leadData.products.length" class="flex flex-wrap gap-1 ml-1">
             <UBadge
@@ -573,7 +547,7 @@ function formatDateSafe(value?: string | null): string {
           />
         </div>
         <p class="mt-2 text-xs text-muted">
-          {{ leadPipelineLabel }}
+          {{ leadPipelineLabel || 'Остался в шуме' }}
         </p>
       </div>
 

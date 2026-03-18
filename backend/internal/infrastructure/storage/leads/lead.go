@@ -475,7 +475,16 @@ func buildFilter(tenantID string, f lead.ListFilter) bson.M {
 		q["merchant_id"] = *f.MerchantID
 	}
 	if f.SemanticDirection != nil {
-		q["semantic_direction"] = *f.SemanticDirection
+		switch strings.ToLower(strings.TrimSpace(*f.SemanticDirection)) {
+		case "merchant", "merchants", "merch", "processing_request", "processing_requests", "processing":
+			q["semantic_direction"] = bson.M{"$in": bson.A{"merchant", "merchants"}}
+		case "trader", "traders":
+			q["semantic_direction"] = bson.M{"$in": bson.A{"trader", "traders"}}
+		case "ps_offer", "ps_offers", "offer", "offers":
+			q["semantic_direction"] = bson.M{"$in": bson.A{"ps_offer", "ps_offers"}}
+		default:
+			q["semantic_direction"] = *f.SemanticDirection
+		}
 	}
 	if f.ChatID != nil {
 		q["chat_id"] = *f.ChatID

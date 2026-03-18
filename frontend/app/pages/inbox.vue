@@ -7,16 +7,7 @@ definePageMeta({
   middleware: 'auth'
 })
 
-type InboxTab = 'all' | 'lead'
 type SignalCategoryFilter = 'all' | 'traders' | 'merchants' | 'ps_offers' | 'noise'
-
-const tabItems: Array<{ label: string, value: InboxTab }> = [{
-  label: 'Все',
-  value: 'all'
-}, {
-  label: 'Лиды',
-  value: 'lead'
-}]
 
 const categoryItems = computed<Array<{ label: string, value: SignalCategoryFilter }>>(() => {
   const items: Array<{ label: string, value: SignalCategoryFilter }> = [{
@@ -31,19 +22,14 @@ const categoryItems = computed<Array<{ label: string, value: SignalCategoryFilte
   }, {
     label: 'Предложение ПС',
     value: 'ps_offers'
+  }, {
+    label: 'Шум',
+    value: 'noise'
   }]
-
-  if (selectedTab.value !== 'lead') {
-    items.push({
-      label: 'Шум',
-      value: 'noise'
-    })
-  }
 
   return items
 })
 
-const selectedTab = ref<InboxTab>('all')
 const selectedCategory = ref<SignalCategoryFilter>('all')
 const selectedChat = ref<string>('all')
 const showArchived = ref(false)
@@ -59,7 +45,7 @@ const route = useRoute()
 const router = useRouter()
 const loadMoreTrigger = useTemplateRef<HTMLElement | null>('loadMoreTrigger')
 const hydrated = ref(false)
-const signalsQueryKey = computed(() => ['signals', selectedTab.value, selectedCategory.value, showArchived.value] as const)
+const signalsQueryKey = computed(() => ['signals', selectedCategory.value, showArchived.value] as const)
 
 onMounted(() => {
   hydrated.value = true
@@ -83,7 +69,6 @@ const {
     query: {
       limit: 50,
       cursor: pageParam || undefined,
-      tab: selectedTab.value,
       category: selectedCategory.value,
       show_archived: showArchived.value
     }
@@ -100,10 +85,6 @@ const signals = computed<SignalItem[]>(() => (signalsPages.value?.pages as Curso
 const { data: appSettings } = await useFetch('/api/settings', {
   default: () => ({ show_multi_account_badges: 'true' })
 })
-
-function isInboxTab(value: unknown): value is InboxTab {
-  return value === 'all' || value === 'lead'
-}
 
 function isCategoryFilter(value: unknown): value is SignalCategoryFilter {
   return value === 'all'
@@ -223,18 +204,6 @@ watch(mailboxSignals, () => {
 })
 
 watch(
-  () => route.query.tab,
-  (tab) => {
-    if (isInboxTab(tab)) {
-      selectedTab.value = tab
-      return
-    }
-    selectedTab.value = 'all'
-  },
-  { immediate: true }
-)
-
-watch(
   () => route.query.category,
   (category) => {
     if (category === 'processing_requests') {
@@ -250,18 +219,14 @@ watch(
   { immediate: true }
 )
 
-watch([selectedTab, selectedCategory], ([tab, category]) => {
-  if (tab === 'lead' && category === 'noise') {
-    selectedCategory.value = 'all'
-    return
-  }
+watch([selectedCategory], ([category]) => {
   const nextQuery = {
     ...route.query,
-    tab,
-    category
+    category,
+    tab: undefined
   }
 
-  if (route.query.tab === nextQuery.tab && route.query.category === nextQuery.category) {
+  if (route.query.category === nextQuery.category && route.query.tab === undefined) {
     return
   }
 
@@ -384,20 +349,7 @@ async function runSelectedNoiseCleanup() {
       </template>
     </UDashboardNavbar>
 
-    <div class="px-3 pt-3 pb-3 border-b border-default flex items-center gap-2">
-      <div class="flex items-center gap-1 flex-1 overflow-x-auto">
-        <UButton
-          v-for="tab in tabItems"
-          :key="tab.value"
-          :label="tab.label"
-          :variant="selectedTab === tab.value ? 'soft' : 'ghost'"
-          :color="selectedTab === tab.value ? 'primary' : 'neutral'"
-          size="xs"
-          class="shrink-0"
-          @click="selectedTab = tab.value"
-        />
-      </div>
-
+    <div class="px-3 pt-3 pb-3 border-b border-default flex items-center gap-2 justify-end">
       <UTooltip :text="showArchived ? 'Скрыть архив' : `Архив${archivedCount ? ` (${archivedCount})` : ''}`">
         <UButton
           :icon="showArchived ? 'i-lucide-archive-x' : 'i-lucide-archive'"

@@ -671,7 +671,12 @@ function exportCSV() {
 
       <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto">
         <div class="text-sm text-muted">
-          Выбрано {{ filteredSelectedCount }} из {{ filteredRowsCount }} лидов.
+          <template v-if="filteredSelectedCount">
+            Выбрано {{ filteredSelectedCount }} из {{ filteredRowsCount }} лидов.
+          </template>
+          <template v-else>
+            Показано {{ filteredRowsCount }} лидов.
+          </template>
         </div>
       </div>
 

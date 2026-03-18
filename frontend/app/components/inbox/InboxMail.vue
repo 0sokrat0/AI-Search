@@ -17,7 +17,6 @@ const toast = useToast()
 const auth = useAuthStore()
 const canSeeTechnicalSignals = computed(() => auth.isSuperAdmin)
 
-const feedbackLoading = ref<'lead' | 'noise' | null>(null)
 const feedbackDone = ref<boolean | null>(null)
 const categoryFeedbackLoading = ref(false)
 const historyCollapsed = ref(true)
@@ -301,30 +300,6 @@ const historyTimeline = computed<TimelineMessage[]>(() => {
   return items
 })
 
-async function sendFeedback(isLead: boolean) {
-  feedbackLoading.value = isLead ? 'lead' : 'noise'
-  try {
-    await $fetch(`/api/signals/${props.mail.signalId}/feedback`, {
-      method: 'POST',
-      body: { is_lead: isLead }
-    })
-    feedbackDone.value = isLead
-    toast.add({
-      title: isLead ? 'Добавлено как лид' : 'Добавлено как шум',
-      description: 'RAG обновлён — следующие похожие сообщения будут классифицированы точнее',
-      color: isLead ? 'success' : 'neutral'
-    })
-    emits('feedback', { id: props.mail.id, signalId: props.mail.signalId, isLead })
-    if (!isLead) {
-      await setFlag('is_ignored', true)
-    }
-  } catch (e: any) {
-    toast.add({ title: 'Ошибка', description: e?.message, color: 'error' })
-  } finally {
-    feedbackLoading.value = null
-  }
-}
-
 async function sendCategoryFeedback(category: 'traders' | 'merchants' | 'ps_offers' | 'noise') {
   categoryFeedbackLoading.value = true
   try {
@@ -404,18 +379,6 @@ function formatDateSafe(value?: string | null): string {
       </template>
 
       <template #right>
-        <UTooltip :text="isIgnored ? 'Восстановить из архива' : 'Архивировать'">
-          <UButton
-            :icon="isIgnored ? 'i-lucide-archive-x' : 'i-lucide-archive'"
-            :color="isIgnored ? 'warning' : 'neutral'"
-            variant="ghost"
-            square
-            :loading="flagLoading === 'is_ignored'"
-            :disabled="flagLoading !== null"
-            @click="setFlag('is_ignored', !isIgnored)"
-          />
-        </UTooltip>
-
         <UTooltip :text="isTeamMember ? 'Снять метку сотрудника' : 'Отметить как сотрудника'">
           <UButton
             :icon="isTeamMember ? 'i-lucide-user-x' : 'i-lucide-user-check'"
@@ -738,35 +701,12 @@ function formatDateSafe(value?: string | null): string {
         </template>
 
         <p class="text-xs text-muted mb-3">
-          Ручной выбор приоритетен: отмечайте сигнал как лид или шум, чтобы система точнее ранжировала похожие кейсы.
+          Ручная категоризация приоритетна: выберите бизнес-категорию или оставьте сигнал в шуме.
         </p>
 
-        <div class="flex gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <UButton
-            icon="i-lucide-thumbs-up"
-            label="Продвинуть в лиды"
-            color="success"
-            variant="soft"
-            :loading="feedbackLoading === 'lead'"
-            :disabled="feedbackLoading !== null || feedbackDone !== null"
-            class="flex-1"
-            @click="sendFeedback(true)"
-          />
-          <UButton
-            icon="i-lucide-thumbs-down"
-            label="Оставить в шуме"
-            color="neutral"
-            variant="soft"
-            :loading="feedbackLoading === 'noise'"
-            :disabled="feedbackLoading !== null || feedbackDone !== null"
-            class="flex-1"
-            @click="sendFeedback(false)"
-          />
-        </div>
-
-        <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <UButton
-            label="Трейдер/Поиск трейдеров"
+            label="Трейдеры / Поиск трейдеров"
             color="info"
             variant="soft"
             :loading="categoryFeedbackLoading"
@@ -774,7 +714,7 @@ function formatDateSafe(value?: string | null): string {
             @click="sendCategoryFeedback('traders')"
           />
           <UButton
-            label="Мерчант"
+            label="Мерчанты"
             color="info"
             variant="soft"
             :loading="categoryFeedbackLoading"
@@ -782,19 +722,23 @@ function formatDateSafe(value?: string | null): string {
             @click="sendCategoryFeedback('merchants')"
           />
           <UButton
-            label="Предложение ПС"
+            label="Предложения от ПС"
             color="primary"
             variant="soft"
             :loading="categoryFeedbackLoading"
             :disabled="categoryFeedbackLoading"
             @click="sendCategoryFeedback('ps_offers')"
           />
+        </div>
+
+        <div class="mt-3">
           <UButton
             label="Шум"
             color="neutral"
             variant="soft"
             :loading="categoryFeedbackLoading"
             :disabled="categoryFeedbackLoading"
+            block
             @click="sendCategoryFeedback('noise')"
           />
         </div>

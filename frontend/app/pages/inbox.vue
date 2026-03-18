@@ -162,10 +162,6 @@ const chatItems = computed(() => {
   return [{ label: 'Все чаты', value: 'all' }, ...options]
 })
 
-const archivedCount = computed(() =>
-  allMailboxSignals.value.filter(m => m.isIgnored).length
-)
-
 const mailboxSignals = computed<Mail[]>(() => {
   let result = allMailboxSignals.value
   if (selectedChat.value !== 'all') {
@@ -271,15 +267,12 @@ async function onFeedback(payload: { signalId: string }) {
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('lg')
 
-async function runBulkAction(action: 'archive' | 'team' | 'category') {
+async function runBulkAction(action: 'team' | 'category') {
   const targets = mailboxSignals.value.filter(mail => selectedSignalIds.value.includes(mail.signalId))
   if (!targets.length) return
   bulkLoading.value = true
   try {
     await Promise.all(targets.map((mail) => {
-      if (action === 'archive') {
-        return $fetch(`/api/signals/${mail.signalId}/flag`, { method: 'POST', body: { field: 'is_ignored', value: true } })
-      }
       if (action === 'team') {
         return $fetch(`/api/signals/${mail.signalId}/flag`, { method: 'POST', body: { field: 'is_team_member', value: true } })
       }
@@ -349,20 +342,6 @@ async function runSelectedNoiseCleanup() {
       </template>
     </UDashboardNavbar>
 
-    <div class="px-3 pt-3 pb-3 border-b border-default flex items-center gap-2 justify-end">
-      <UTooltip :text="showArchived ? 'Скрыть архив' : `Архив${archivedCount ? ` (${archivedCount})` : ''}`">
-        <UButton
-          :icon="showArchived ? 'i-lucide-archive-x' : 'i-lucide-archive'"
-          :variant="showArchived ? 'soft' : 'ghost'"
-          :color="showArchived ? 'warning' : 'neutral'"
-          size="xs"
-          square
-          :class="{ 'opacity-50': !showArchived && !archivedCount }"
-          @click="showArchived = !showArchived"
-        />
-      </UTooltip>
-    </div>
-
     <div class="px-3 py-3 border-b border-default space-y-2">
       <USelect
         v-model="selectedCategory"
@@ -384,15 +363,6 @@ async function runSelectedNoiseCleanup() {
           Выбрано сигналов: {{ selectedSignalIds.length }}
         </p>
         <div class="flex flex-wrap items-center gap-2">
-          <UButton
-            size="xs"
-            color="neutral"
-            variant="soft"
-            :loading="bulkLoading"
-            @click="runBulkAction('archive')"
-          >
-            Архивировать
-          </UButton>
           <UButton
             size="xs"
             color="info"

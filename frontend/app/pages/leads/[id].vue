@@ -39,9 +39,9 @@ const companyName = computed(() => {
 
 const categoryLabel: Record<string, string> = {
   leads: 'Лид',
-  traders: 'Трейдер',
-  merchants: 'Мерчант',
-  ps_offers: 'Предложение ПС',
+  traders: 'Трейдеры / Поиск трейдеров',
+  merchants: 'Мерчанты',
+  ps_offers: 'Предложения от ПС',
   noise: 'Шум'
 }
 
@@ -55,9 +55,9 @@ const categoryColor: Record<string, 'primary' | 'success' | 'warning' | 'info' |
 
 const categorySelectItems = [
   { label: 'Лид', value: 'leads' },
-  { label: 'Трейдер', value: 'traders' },
-  { label: 'Мерчант', value: 'merchants' },
-  { label: 'Предложение ПС', value: 'ps_offers' },
+  { label: 'Трейдеры / Поиск трейдеров', value: 'traders' },
+  { label: 'Мерчанты', value: 'merchants' },
+  { label: 'Предложения от ПС', value: 'ps_offers' },
   { label: 'Шум / мусор', value: 'noise' }
 ]
 
@@ -87,15 +87,8 @@ const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error
 
 const qualificationSourceLabel: Record<string, string> = {
   ai_qualified: 'Квалифицировано ИИ',
-  manual_approved: 'Ручной апрув'
+  manual_approved: 'Ручная квалификация'
 }
-
-// qualification: userFeedback=null → unreviewed, true → lead, false → not-lead
-const qualificationState = computed(() => {
-  if (lead.value?.userFeedback === true) return 'lead'
-  if (lead.value?.userFeedback === false) return 'not-lead'
-  return 'unreviewed'
-})
 
 function buildContactHref(raw?: string | null): string {
   const value = String(raw || '').trim()
@@ -128,18 +121,6 @@ function formatDistanceSafe(value?: string | null): string {
 function copyToClipboard(text: string) {
   window.navigator.clipboard.writeText(text)
   toast.add({ title: 'Скопировано', color: 'success' })
-}
-
-async function approve() {
-  await $fetch(`/api/leads/${leadID}/approve`, { method: 'POST' })
-  toast.add({ title: 'Отмечен как лид', description: 'Данные переданы ИИ-классификатору', color: 'success' })
-  await refresh()
-}
-
-async function reject() {
-  await $fetch(`/api/leads/${leadID}/reject`, { method: 'POST' })
-  toast.add({ title: 'Отмечен как не-лид', description: 'Данные переданы ИИ-классификатору', color: 'warning' })
-  await refresh()
 }
 
 async function setStatus(newStatus: LeadStatus) {
@@ -318,25 +299,9 @@ watch(lead, (value) => {
           <template #header>
             <div class="flex items-center justify-between gap-2">
               <h3 class="font-semibold">
-                Квалификация лида
+                Карточка сигнала
               </h3>
               <div class="flex items-center gap-2">
-                <UBadge
-                  v-if="qualificationState === 'lead'"
-                  color="success"
-                  variant="soft"
-                  icon="i-lucide-check-circle"
-                >
-                  Подтверждён
-                </UBadge>
-                <UBadge
-                  v-else-if="qualificationState === 'not-lead'"
-                  color="neutral"
-                  variant="soft"
-                  icon="i-lucide-x-circle"
-                >
-                  Не лид
-                </UBadge>
                 <UBadge
                   :color="categoryColor[String(lead.semanticCategory || 'leads')] || 'neutral'"
                   variant="soft"
@@ -355,21 +320,6 @@ watch(lead, (value) => {
           </template>
 
           <div class="flex flex-wrap gap-2 items-center">
-            <UButton
-              :color="qualificationState === 'lead' ? 'success' : 'neutral'"
-              :variant="qualificationState === 'lead' ? 'soft' : 'outline'"
-              icon="i-lucide-thumbs-up"
-              label="Это целевой лид"
-              @click="approve"
-            />
-            <UButton
-              :color="qualificationState === 'not-lead' ? 'error' : 'neutral'"
-              :variant="qualificationState === 'not-lead' ? 'soft' : 'outline'"
-              icon="i-lucide-thumbs-down"
-              label="Шум / Не лид"
-              @click="reject"
-            />
-            <div class="flex-1" />
             <div class="flex items-center gap-2">
               <USelect
                 v-model="selectedCategory"
@@ -389,8 +339,7 @@ watch(lead, (value) => {
             </div>
           </div>
           <p class="text-xs text-muted mt-3 flex items-center gap-1.5 border-t border-default pt-3">
-            <UIcon name="i-lucide-brain-circuit" class="size-3.5 shrink-0" />
-            Ваши оценки обучают ИИ и повышают точность автоматического определения
+            Один лид здесь = один конкретный сигнал. Контакт используется только как источник и связь между сообщениями.
           </p>
         </UCard>
 

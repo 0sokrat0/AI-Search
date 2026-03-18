@@ -255,7 +255,7 @@ func (h *IngestHandler) maybeCleanupOldNoise(ctx context.Context) {
 	h.lastCleanupAt = now
 	h.cleanupMu.Unlock()
 
-	deleted, err := h.repo.DeleteOldNoise(ctx, h.tenantID, noiseTTL)
+	deleted, err := h.repo.DeleteNoise(ctx, h.tenantID, noiseTTL, nil)
 	if err != nil {
 		h.log.Warn("cleanup old noise failed", zap.Error(err))
 		return

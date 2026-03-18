@@ -23,10 +23,10 @@ const categoryItems = computed<Array<{ label: string, value: SignalCategoryFilte
     label: 'Все теги',
     value: 'all'
   }, {
-    label: 'Мерч',
+    label: 'Мерчанты',
     value: 'merchants'
   }, {
-    label: 'Трейдер/Поиск трейдеров',
+    label: 'Трейдеры / Поиск трейдеров',
     value: 'traders'
   }, {
     label: 'Предложение ПС',
@@ -50,6 +50,9 @@ const showArchived = ref(false)
 const selectedSignalIds = ref<string[]>([])
 const bulkCategory = ref<'traders' | 'merchants' | 'ps_offers' | 'noise'>('traders')
 const bulkLoading = ref(false)
+const cleanupNoiseLoading = ref(false)
+const cleanupNoiseHours = ref('72')
+const showCleanupNoiseModal = ref(false)
 const toast = useToast()
 const queryClient = useQueryClient()
 const route = useRoute()
@@ -318,6 +321,37 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
     bulkLoading.value = false
   }
 }
+
+async function runSelectedNoiseCleanup() {
+  if (!selectedSignalIds.value.length) return
+
+  cleanupNoiseLoading.value = true
+  try {
+    const result = await $fetch<{ deleted: number, hours: number, message_ids?: number }>('/api/settings/cleanup-noise', {
+      method: 'POST',
+      body: {
+        older_than_hours: cleanupNoiseHours.value,
+        message_ids: selectedSignalIds.value
+      }
+    })
+    toast.add({
+      title: 'Очистка завершена',
+      description: `Удалено шумовых сообщений: ${result.deleted}`,
+      color: 'success'
+    })
+    selectedSignalIds.value = []
+    showCleanupNoiseModal.value = false
+    await queryClient.invalidateQueries({ queryKey: ['signals'] })
+  } catch (e: any) {
+    toast.add({
+      title: 'Ошибка очистки',
+      description: e?.message || 'Не удалось удалить выбранные шумовые сообщения',
+      color: 'error'
+    })
+  } finally {
+    cleanupNoiseLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -407,9 +441,9 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
           <USelect
             v-model="bulkCategory"
             :items="[
-              { label: 'Трейдер/Поиск трейдеров', value: 'traders' },
-              { label: 'Мерчант', value: 'merchants' },
-              { label: 'Предложение ПС', value: 'ps_offers' },
+              { label: 'Трейдеры / Поиск трейдеров', value: 'traders' },
+              { label: 'Мерчанты', value: 'merchants' },
+              { label: 'Предложения от ПС', value: 'ps_offers' },
               { label: 'Шум', value: 'noise' }
             ]"
             size="xs"
@@ -423,6 +457,15 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
             @click="runBulkAction('category')"
           >
             Проставить тег
+          </UButton>
+          <UButton
+            size="xs"
+            color="warning"
+            variant="soft"
+            :loading="cleanupNoiseLoading"
+            @click="showCleanupNoiseModal = true"
+          >
+            Очистить шум из Mongo
           </UButton>
         </div>
       </div>
@@ -488,4 +531,36 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
       />
     </div>
   </ClientOnly>
+
+  <UModal v-model:open="showCleanupNoiseModal" title="Очистка выбранного шума">
+    <template #body>
+      <div class="space-y-4">
+        <p class="text-sm text-muted">
+          Будут удалены только выбранные шумовые сообщения старше указанного периода.
+        </p>
+        <div class="space-y-2">
+          <p class="text-sm font-medium">
+            Старше, чем (часов)
+          </p>
+          <UInput
+            v-model="cleanupNoiseHours"
+            type="number"
+            min="1"
+            max="8760"
+            placeholder="72"
+          />
+        </div>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2 w-full">
+        <UButton color="neutral" variant="ghost" @click="showCleanupNoiseModal = false">
+          Отмена
+        </UButton>
+        <UButton color="warning" :loading="cleanupNoiseLoading" @click="runSelectedNoiseCleanup">
+          Удалить
+        </UButton>
+      </div>
+    </template>
+  </UModal>
 </template>

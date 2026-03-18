@@ -20,7 +20,7 @@ type Repository interface {
 	SetClassification(ctx context.Context, tenantID, id string, isLead bool) error
 	SetSemanticDirection(ctx context.Context, tenantID, id string, direction *string) error
 	CountSenderInChats(ctx context.Context, tenantID string, senderIDs []int64) (map[int64]int, error)
-	DeleteOldNoise(ctx context.Context, tenantID string, olderThan time.Duration) (int64, error)
+	DeleteNoise(ctx context.Context, tenantID string, olderThan time.Duration, ids []string) (int64, error)
 	GetIngestStats(ctx context.Context, tenantID string, days int) (*IngestStats, error)
 	GetChartData(ctx context.Context, tenantID string, from, to time.Time) ([]ChartDayBucket, error)
 }

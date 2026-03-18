@@ -20,7 +20,7 @@ export function useAuthQuery<TData, TError = Error, TQueryKey extends QueryKey =
 
   watch(query.error, (err) => {
     if (!err) return
-    const e = err as Record<string, unknown>
+    const e = err as unknown as Record<string, unknown>
     const status = e?.statusCode ?? e?.status ?? (e?.data as Record<string, unknown>)?.statusCode
     if (status === 401) {
       authStore.clearAuth()
@@ -46,13 +46,13 @@ export function useAuthInfiniteQuery<TData>(
 
   const query = useInfiniteQuery({
     queryKey: queryKey as any,
-    queryFn: ({ pageParam }) => queryFn({ pageParam }),
+    queryFn: ({ pageParam }: { pageParam: unknown }) => queryFn({ pageParam }),
     ...options
   } as any)
 
   watch(query.error, (err) => {
     if (!err) return
-    const e = err as Record<string, unknown>
+    const e = err as unknown as Record<string, unknown>
     const status = e?.statusCode ?? e?.status ?? (e?.data as Record<string, unknown>)?.statusCode
     if (status === 401) {
       authStore.clearAuth()

@@ -41,7 +41,8 @@ func (h *SettingsHandler) UpdateSettings(c *fiber.Ctx) error {
 }
 
 type cleanupNoiseRequest struct {
-	OlderThanHours string `json:"older_than_hours"`
+	OlderThanHours string   `json:"older_than_hours"`
+	MessageIDs     []string `json:"message_ids"`
 }
 
 func (h *SettingsHandler) CleanupNoise(c *fiber.Ctx) error {
@@ -55,13 +56,14 @@ func (h *SettingsHandler) CleanupNoise(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "older_than_hours must be between 1 and 8760")
 	}
 
-	deleted, err := h.uc.CleanupNoise(c.Context(), tenantFromCtx(c), time.Duration(hours)*time.Hour)
+	deleted, err := h.uc.CleanupNoise(c.Context(), tenantFromCtx(c), time.Duration(hours)*time.Hour, req.MessageIDs)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(fiber.Map{
-		"deleted": deleted,
-		"hours":   hours,
+		"deleted":     deleted,
+		"hours":       hours,
+		"message_ids": len(req.MessageIDs),
 	})
 }

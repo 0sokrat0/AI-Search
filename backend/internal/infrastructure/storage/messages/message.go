@@ -61,7 +61,7 @@ func (r *mongoRepository) Save(ctx context.Context, m *message.Message) error {
 	return err
 }
 
-func (r *mongoRepository) DeleteOldNoise(ctx context.Context, tenantID string, olderThan time.Duration) (int64, error) {
+func (r *mongoRepository) DeleteNoise(ctx context.Context, tenantID string, olderThan time.Duration, ids []string) (int64, error) {
 	threshold := time.Now().Add(-olderThan)
 	filter := bson.M{
 		"tenant_id":  tenantID,
@@ -70,6 +70,9 @@ func (r *mongoRepository) DeleteOldNoise(ctx context.Context, tenantID string, o
 			bson.M{"classified_as_lead": false},
 			bson.M{"classified_as_lead": nil},
 		},
+	}
+	if len(ids) > 0 {
+		filter["_id"] = bson.M{"$in": ids}
 	}
 	res, err := r.col.DeleteMany(ctx, filter)
 	if err != nil {

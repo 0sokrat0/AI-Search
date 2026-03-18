@@ -6,8 +6,7 @@ const open = ref(false)
 const auth = useAuthStore()
 
 const { data: sidebarSignals } = useFetch<SignalItem[]>('/api/signals', {
-  default: () => [],
-  query: { limit: 200 }
+  default: () => []
 })
 
 const queueCount = computed(() => {

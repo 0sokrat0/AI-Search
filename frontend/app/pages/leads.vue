@@ -36,9 +36,8 @@ const columnVisibility = ref<Record<string, boolean>>({
   geo: false
 })
 const rowSelection = ref({})
-const statusFilter = ref('all')
 const categoryFilter = ref<'all' | 'traders' | 'merchants' | 'ps_offers'>('all')
-const leadScope = ref<'in_work' | 'archive'>('in_work')
+const selectedChat = ref('all')
 const bulkLoading = ref(false)
 const bulkStatus = ref<LeadStatus>('qualified')
 const bulkCompanyId = ref<string>('')
@@ -71,14 +70,32 @@ const {
 )
 const data = computed<Lead[]>(() => (leadPages.value?.pages as CursorPage<Lead>[] | undefined)?.flatMap((page: CursorPage<Lead>) => page.items) ?? [])
 
-const scopedLeads = computed(() => {
-  return leadScope.value === 'archive'
-    ? data.value.filter((l: Lead) => l.status === 'converted' || l.status === 'rejected' || l.status === 'false_positive')
-    : data.value.filter((l: Lead) => l.status !== 'converted' && l.status !== 'rejected' && l.status !== 'false_positive')
+const chatItems = computed(() => {
+  const counts = new Map<string, number>()
+
+  for (const lead of data.value) {
+    const chat = String(lead.chatTitle || '').trim()
+    if (!chat) continue
+    counts.set(chat, (counts.get(chat) ?? 0) + 1)
+  }
+
+  const items = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([chat, count]) => ({
+      label: `${chat} (${count})`,
+      value: chat
+    }))
+
+  return [{ label: 'Все чаты', value: 'all' }, ...items]
+})
+
+const filteredLeads = computed(() => {
+  if (selectedChat.value === 'all') return data.value
+  return data.value.filter((lead: Lead) => lead.chatTitle === selectedChat.value)
 })
 
 const groupedScopedLeads = computed<GroupedLead[]>(() => {
-  return scopedLeads.value.map((l: Lead) => ({
+  return filteredLeads.value.map((l: Lead) => ({
     ...l,
     chatTitles: l.chatTitle ? [l.chatTitle] : [],
     allIds: [l.id]
@@ -117,7 +134,7 @@ const statusLabel: Record<LeadStatus, string> = {
 }
 
 const categoryLabel: Record<string, string> = {
-  traders: 'Трейдеры',
+  traders: 'Трейдеры / Поиск трейдеров',
   merchants: 'Мерчанты',
   ps_offers: 'Предложения от ПС'
 }
@@ -390,20 +407,9 @@ const columns: TableColumn<GroupedLead>[] = [
     )
   }
 ]
-watch(() => statusFilter.value, (newVal) => {
-  if (!table?.value?.tableApi) return
 
-  const statusColumn = table.value.tableApi.getColumn('status')
-  if (!statusColumn) return
-
-  if (newVal === 'all') {
-    statusColumn.setFilterValue(undefined)
-  } else {
-    statusColumn.setFilterValue(newVal)
-  }
-})
-
-watch([categoryFilter, leadScope, statusFilter], () => {
+watch([categoryFilter], () => {
+  selectedChat.value = 'all'
 })
 
 useIntersectionObserver(loadMoreTrigger, async ([entry]) => {
@@ -522,42 +528,22 @@ function exportCSV() {
 
         <div class="flex flex-wrap items-center gap-1.5">
           <USelect
-            v-model="leadScope"
-            :items="[
-              { label: 'В работе', value: 'in_work' },
-              { label: 'Архив', value: 'archive' }
-            ]"
-            class="min-w-32"
-          />
-
-          <USelect
             v-model="categoryFilter"
             :items="[
-              { label: 'Все типы', value: 'all' },
-              { label: 'Трейдеры (P2P)', value: 'traders' },
-              { label: 'Мерчанты (Интеграция)', value: 'merchants' },
+              { label: 'Все категории', value: 'all' },
+              { label: 'Трейдеры / Поиск трейдеров', value: 'traders' },
+              { label: 'Мерчанты', value: 'merchants' },
               { label: 'Предложения от ПС', value: 'ps_offers' }
             ]"
             class="min-w-52"
           />
 
           <USelect
-            v-model="statusFilter"
-            :items="[
-              { label: 'Все', value: 'all' },
-              { label: 'Обнаружен (Detected)', value: 'detected' },
-              { label: 'Подтвержден (Confirmed)', value: 'confirmed' },
-              { label: 'Спорный (Controversial)', value: 'controversial' },
-              { label: 'Ложный (False Positive)', value: 'false_positive' },
-              { label: 'Новый', value: 'new' },
-              { label: 'Первичный контакт', value: 'contacted' },
-              { label: 'В работе', value: 'qualified' },
-              { label: 'Сделка / подключен', value: 'converted' },
-              { label: 'Мусор / закрыт', value: 'rejected' }
-            ]"
+            v-model="selectedChat"
+            :items="chatItems"
             :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200' }"
-            placeholder="Фильтр статуса"
-            class="min-w-36"
+            placeholder="Фильтр чата"
+            class="min-w-52"
           />
           <UButton
             label="Экспорт"

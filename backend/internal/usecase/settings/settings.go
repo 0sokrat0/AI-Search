@@ -53,9 +53,9 @@ func (uc *UseCase) Update(ctx context.Context, patch map[string]string) error {
 	return uc.store.SetAll(ctx, patch)
 }
 
-func (uc *UseCase) CleanupNoise(ctx context.Context, tenantID string, olderThan time.Duration) (int64, error) {
+func (uc *UseCase) CleanupNoise(ctx context.Context, tenantID string, olderThan time.Duration, ids []string) (int64, error) {
 	if uc.messages == nil {
 		return 0, nil
 	}
-	return uc.messages.DeleteOldNoise(ctx, tenantID, olderThan)
+	return uc.messages.DeleteNoise(ctx, tenantID, olderThan, ids)
 }

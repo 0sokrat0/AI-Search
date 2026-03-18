@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
-import { upperFirst } from 'scule'
 import { formatDistanceToNow, isValid } from 'date-fns'
-import { useIntersectionObserver } from '@vueuse/core'
-import type { CursorPage, Lead, LeadStatus } from '~/types'
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
+import type { CursorPage, Lead } from '~/types'
 
 interface GroupedLead extends Lead {
   chatTitles: string[]
@@ -14,41 +12,21 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const UAvatar = resolveComponent('UAvatar')
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UDropdownMenu = resolveComponent('UDropdownMenu')
-const UCheckbox = resolveComponent('UCheckbox')
-
 const toast = useToast()
-const table = useTemplateRef<any>('table')
-const loadMoreTrigger = useTemplateRef<HTMLElement | null>('loadMoreTrigger')
+const queryClient = useQueryClient()
 const router = useRouter()
 const route = useRoute()
 const hydrated = ref(false)
+const categoryFilter = ref<'all' | 'traders' | 'merchants' | 'ps_offers'>('all')
+const selectedChat = ref('all')
+const contact = ref('')
 
 const isDetailRoute = computed(() => Boolean(route.params.id))
+
 onMounted(() => {
   hydrated.value = true
 })
 
-const columnFilters = ref([{ id: 'contact', value: '' }])
-const columnVisibility = ref<Record<string, boolean>>({
-  nextAction: false,
-  status: false,
-  signalsCount: false,
-  geo: false
-})
-const rowSelection = ref({})
-const categoryFilter = ref<'all' | 'traders' | 'merchants' | 'ps_offers'>('all')
-const selectedChat = ref('all')
-const bulkLoading = ref(false)
-const bulkStatus = ref<LeadStatus>('qualified')
-const bulkCompanyId = ref<string>('')
-
-const queryClient = useQueryClient()
-const { companies, loading: companiesLoading } = useCompanies()
-const companySelectItems = computed(() => companies.value.map(c => ({ label: c.name, value: c.id })))
 const {
   data: leadPages,
   isPending,
@@ -72,8 +50,10 @@ const {
     staleTime: 15_000
   }
 )
+
 const data = computed<Lead[]>(() => (leadPages.value?.pages as CursorPage<Lead>[] | undefined)?.flatMap((page: CursorPage<Lead>) => page.items) ?? [])
-const loadedLeadsCount = computed(() => groupedScopedLeads.value.length)
+
+const normalizedContactQuery = computed(() => String(contact.value || '').trim().toLowerCase())
 
 const chatItems = computed(() => {
   const counts = new Map<string, number>()
@@ -94,70 +74,66 @@ const chatItems = computed(() => {
   return [{ label: 'Все чаты', value: 'all' }, ...items]
 })
 
+function normalizeCategory(raw?: string | null): 'traders' | 'merchants' | 'ps_offers' | 'noise' | '' {
+  switch (String(raw || '').toLowerCase()) {
+    case 'trader':
+    case 'traders':
+      return 'traders'
+    case 'merchant':
+    case 'merchants':
+    case 'processing_requests':
+      return 'merchants'
+    case 'ps_offer':
+    case 'ps_offers':
+      return 'ps_offers'
+    case 'noise':
+      return 'noise'
+    default:
+      return ''
+  }
+}
+
 const filteredLeads = computed(() => {
-  if (selectedChat.value === 'all') return data.value
-  return data.value.filter((lead: Lead) => lead.chatTitle === selectedChat.value)
+  return data.value.filter((lead: Lead) => {
+    const matchesChat = selectedChat.value === 'all' || lead.chatTitle === selectedChat.value
+    if (!matchesChat) return false
+
+    const query = normalizedContactQuery.value
+    if (!query) return true
+
+    const haystack = [
+      lead.name,
+      lead.contact,
+      lead.chatTitle,
+      lead.text,
+      lead.company
+    ]
+      .map(value => String(value || '').toLowerCase())
+      .join(' ')
+
+    return haystack.includes(query)
+  })
 })
 
 const groupedScopedLeads = computed<GroupedLead[]>(() => {
-  return filteredLeads.value.map((l: Lead) => ({
-    ...l,
-    chatTitles: l.chatTitle ? [l.chatTitle] : [],
-    allIds: [l.id]
+  return filteredLeads.value.map((lead: Lead) => ({
+    ...lead,
+    chatTitles: lead.chatTitle ? [lead.chatTitle] : [],
+    allIds: [lead.id]
   }))
+})
+
+const loadedLeadsCount = computed(() => groupedScopedLeads.value.length)
+
+watch(categoryFilter, () => {
+  selectedChat.value = 'all'
 })
 
 function formatLastSeen(value?: string) {
   if (!value) return '—'
-  const d = new Date(value)
-  if (!isValid(d)) return '—'
-  return formatDistanceToNow(d, { addSuffix: true })
-}
-
-const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'info'> = {
-  new: 'primary',
-  detected: 'info',
-  confirmed: 'success',
-  controversial: 'warning',
-  false_positive: 'error',
-  contacted: 'warning',
-  qualified: 'success',
-  converted: 'success',
-  rejected: 'error'
-}
-
-const statusLabel: Record<LeadStatus, string> = {
-  new: 'Новый',
-  detected: 'Обнаружен',
-  confirmed: 'Подтвержден',
-  controversial: 'Спорный',
-  false_positive: 'Ложный (FP)',
-  contacted: 'Первичный контакт',
-  qualified: 'В работе',
-  converted: 'Сделка / подключен',
-  rejected: 'Мусор / закрыт'
-}
-
-const categoryLabel: Record<string, string> = {
-  traders: 'Трейдеры / Поиск трейдеров',
-  merchants: 'Мерчанты',
-  ps_offers: 'Предложения от ПС'
-}
-
-const categoryColor: Record<string, 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'info'> = {
-  traders: 'success',
-  merchants: 'info',
-  ps_offers: 'info'
-}
-
-const qualificationSourceLabel: Record<string, string> = {
-  ai_qualified: 'Квалифицировано ИИ',
-  manual_approved: 'Ручной апрув'
-}
-
-const qualificationSourceColor: Record<string, 'primary' | 'success' | 'info' | 'neutral'> = {
-  ai_qualified: 'info',
-  manual_approved: 'success'
+  const date = new Date(value)
+  if (!isValid(date)) return '—'
+  return formatDistanceToNow(date, { addSuffix: true })
 }
 
 function openLead(id: string) {
@@ -172,32 +148,85 @@ function buildContactHref(raw?: string | null): string {
   return ''
 }
 
-function nextActionLabel(status: LeadStatus): string {
-  switch (status) {
-    case 'new':
-    case 'detected':
-      return 'Квалифицировать'
-    case 'confirmed':
-      return 'В работу'
-    case 'controversial':
-      return 'Перепроверить'
-    case 'false_positive':
-      return 'В корзину'
-    case 'contacted':
-      return 'Уточнить запрос'
-    case 'qualified':
-      return 'Подготовить оффер'
-    case 'converted':
-      return 'Сопровождать'
-    case 'rejected':
-      return 'Архив'
+function categoryLabel(raw?: string | null): string {
+  switch (normalizeCategory(raw)) {
+    case 'traders':
+      return 'Трейдеры / Поиск трейдеров'
+    case 'merchants':
+      return 'Мерчанты'
+    case 'ps_offers':
+      return 'Предложения от ПС'
+    case 'noise':
+      return 'Шум'
     default:
-      return 'Проверить'
+      return 'Без категории'
   }
 }
 
+function categoryColor(raw?: string | null): 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'info' {
+  switch (normalizeCategory(raw)) {
+    case 'traders':
+      return 'success'
+    case 'merchants':
+      return 'info'
+    case 'ps_offers':
+      return 'primary'
+    case 'noise':
+      return 'warning'
+    default:
+      return 'neutral'
+  }
+}
+
+function qualificationSourceLabel(source?: string | null): string {
+  switch (String(source || '').toLowerCase()) {
+    case 'ai_qualified':
+      return 'Квалифицировано ИИ'
+    case 'manual_approved':
+      return 'Ручной апрув'
+    default:
+      return '—'
+  }
+}
+
+function qualificationSourceColor(source?: string | null): 'primary' | 'success' | 'info' | 'neutral' {
+  switch (String(source || '').toLowerCase()) {
+    case 'ai_qualified':
+      return 'info'
+    case 'manual_approved':
+      return 'success'
+    default:
+      return 'neutral'
+  }
+}
+
+function scorePercent(value?: number | null): number | null {
+  const numeric = Number(value ?? 0)
+  if (!Number.isFinite(numeric) || numeric <= 0) return null
+  return Math.round(numeric * 100)
+}
+
+function scrollerSizeDependencies(lead: GroupedLead) {
+  return [
+    lead.name,
+    lead.contact,
+    lead.chatTitle,
+    lead.text,
+    lead.company,
+    lead.qualificationSource,
+    lead.semanticCategory,
+    lead.lastSeenAt,
+    lead.signalsCount
+  ]
+}
+
+async function handleLoadMore() {
+  if (!hasNextPage.value || isFetchingNextPage.value) return
+  await fetchNextPage()
+}
+
 async function deleteLead(id: string, name?: string) {
-  const ok = window.confirm(`Удалить лид "${name || id}" из CRM?`)
+  const ok = window.confirm(`Удалить лид "${name || id}" из списка?`)
   if (!ok) return
 
   try {
@@ -205,310 +234,39 @@ async function deleteLead(id: string, name?: string) {
     await queryClient.invalidateQueries({ queryKey: ['leads'] })
     toast.add({
       title: 'Лид удален',
-      description: 'Карточка удалена из таблицы лидов',
+      description: 'Карточка удалена из списка',
       color: 'success'
     })
-  } catch (e: any) {
+  } catch (error: any) {
     toast.add({
       title: 'Ошибка удаления',
-      description: e?.message || 'Не удалось удалить лид',
+      description: error?.message || 'Не удалось удалить лид',
       color: 'error'
     })
   }
-}
-
-
-async function updateLeadStatus(id: string, status: LeadStatus) {
-  try {
-    await $fetch(`/api/leads/${id}/status`, { method: 'PATCH', body: { status } })
-    await queryClient.invalidateQueries({ queryKey: ['leads'] })
-    toast.add({
-      title: 'Статус обновлен',
-      description: `Лид переведен в статус "${statusLabel[status]}"`,
-      color: 'success'
-    })
-  } catch (e: any) {
-    toast.add({
-      title: 'Ошибка',
-      description: e?.message || 'Не удалось обновить статус',
-      color: 'error'
-    })
-  }
-}
-
-const columns: TableColumn<GroupedLead>[] = [
-  {
-    id: 'select',
-    header: ({ table }) =>
-      h(UCheckbox, {
-        'modelValue': table.getIsSomePageRowsSelected()
-          ? 'indeterminate'
-          : table.getIsAllPageRowsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') =>
-          table.toggleAllPageRowsSelected(!!value),
-        'ariaLabel': 'Выбрать все лиды'
-      }),
-    cell: ({ row }) =>
-      h(UCheckbox, {
-        'modelValue': row.getIsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-        'ariaLabel': 'Выбрать лид'
-      })
-  },
-  {
-    accessorKey: 'name',
-    header: 'Лид',
-    cell: ({ row }) => {
-      const grouped = row.original as GroupedLead
-      const count = grouped.allIds?.length ?? 1
-      return h('button', {
-        class: 'flex items-center gap-3 text-left w-full',
-        onClick: () => openLead(row.original.id)
-      }, [
-        h(UAvatar, {
-          ...row.original.avatar,
-          alt: row.original.name,
-          size: 'lg'
-        }),
-        h('div', { class: 'flex items-center gap-2' }, [
-          h('p', { class: 'font-medium text-highlighted' }, row.original.name),
-          count > 1
-            ? h(UBadge, { color: 'neutral', variant: 'soft', size: 'xs' }, () => `×${count}`)
-            : null
-        ])
-      ])
-    }
-  },
-  {
-    accessorKey: 'text',
-    header: 'Сигнал',
-    cell: ({ row }) => h('p', { class: 'text-xs text-muted line-clamp-2 max-w-xs break-words' }, row.original.text)
-  },
-  {
-    accessorKey: 'contact',
-    header: 'Контакт',
-    cell: ({ row }) => {
-      const contact = row.original.contact || '—'
-      const href = buildContactHref(row.original.contact)
-      return h('div', { class: 'flex items-center gap-1.5' }, [
-        h('span', { class: 'truncate max-w-24 text-xs' }, contact),
-        href
-          ? h(UButton, {
-              icon: 'i-lucide-send',
-              color: 'neutral',
-              variant: 'ghost',
-              size: 'xs',
-              href,
-              target: '_blank'
-            })
-          : null
-      ])
-    }
-  },
-  {
-    accessorKey: 'chatTitle',
-    header: 'Чат',
-    cell: ({ row }) => {
-      const grouped = row.original as GroupedLead
-      const titles = grouped.chatTitles?.length ? grouped.chatTitles : [row.original.chatTitle].filter(Boolean)
-      if (!titles.length) return '—'
-      if (titles.length === 1) return titles[0]
-      return h('div', { class: 'flex flex-wrap items-center gap-1' }, [
-        h('span', { class: 'truncate max-w-28' }, titles[0]),
-        h(UBadge, { color: 'neutral', variant: 'soft', size: 'xs' }, () => `+${titles.length - 1}`)
-      ])
-    }
-  },
-  {
-    accessorKey: 'qualificationSource',
-    header: 'Источник',
-    cell: ({ row }) => {
-      const source = String(row.original.qualificationSource || '')
-      if (!source) return '—'
-      return h(UBadge, {
-        color: qualificationSourceColor[source] || 'neutral',
-        variant: 'soft'
-      }, () => qualificationSourceLabel[source] || source)
-    }
-  },
-  {
-    accessorKey: 'semanticCategory',
-    header: 'Категория',
-    cell: ({ row }) => {
-      const c = String(row.original.semanticCategory || '')
-      if (!c) return '—'
-      return h(UBadge, {
-        color: categoryColor[c] || 'neutral',
-        variant: 'subtle'
-      }, () => categoryLabel[c] || c)
-    }
-  },
-  {
-    accessorKey: 'merchantId',
-    header: 'Компания',
-    cell: ({ row }) => {
-      const mid = row.original.merchantId || row.original.companyId
-      if (mid && mid !== 'default') {
-        const name = companies.value.find(c => c.id === mid)?.name
-        if (name) return h('span', name)
-      }
-      return '—'
-    }
-  },
-  {
-    id: 'nextAction',
-    header: 'Следующий шаг',
-    cell: ({ row }) => h(UBadge, { color: 'neutral', variant: 'subtle' }, () => nextActionLabel(row.original.status))
-  },
-  {
-    accessorKey: 'status',
-    header: 'Статус',
-    filterFn: 'equals',
-    cell: ({ row }) => h(UBadge, {
-      variant: 'subtle',
-      color: statusColor[row.original.status]
-    }, () => statusLabel[row.original.status])
-  },
-  {
-    accessorKey: 'signalsCount',
-    header: 'Сигналы',
-    cell: ({ row }) => row.original.signalsCount ?? 1
-  },
-  {
-    accessorKey: 'geo',
-    header: 'Гео',
-    cell: ({ row }) => (row.original.geo ?? []).join(', ')
-  },
-  {
-    accessorKey: 'lastSeenAt',
-    header: 'Последний',
-    cell: ({ row }) => formatLastSeen(row.original.lastSeenAt)
-  },
-  {
-    id: 'actions',
-    cell: ({ row }) => h(
-      'div',
-      { class: 'flex items-center justify-end gap-1' },
-      [
-        h(UButton, {
-          icon: 'i-lucide-eye',
-          color: 'neutral',
-          variant: 'ghost',
-          size: 'sm',
-          square: true,
-          title: 'Открыть профиль лида',
-          onClick: () => openLead(row.original.id)
-        }),
-        h(UButton, {
-          icon: 'i-lucide-trash-2',
-          color: 'error',
-          variant: 'ghost',
-          size: 'sm',
-          square: true,
-          title: 'Удалить из CRM',
-          onClick: () => deleteLead(row.original.id, row.original.name)
-        })
-      ]
-    )
-  }
-]
-
-watch([categoryFilter], () => {
-  selectedChat.value = 'all'
-})
-
-useIntersectionObserver(loadMoreTrigger, async ([entry]) => {
-  if (!entry?.isIntersecting || !hasNextPage.value || isFetchingNextPage.value) return
-  await fetchNextPage()
-})
-
-const contact = computed({
-  get: (): string => {
-    return (table.value?.tableApi?.getColumn('contact')?.getFilterValue() as string) || ''
-  },
-  set: (value: string) => {
-    table.value?.tableApi?.getColumn('contact')?.setFilterValue(value || undefined)
-  }
-})
-
-const selectedLeadRows = computed<Array<{ original: Lead }>>(() => table.value?.tableApi?.getFilteredSelectedRowModel?.()?.rows ?? [])
-const selectedLeadIds = computed<string[]>(() => selectedLeadRows.value.map((row: { original: Lead }) => row.original.id))
-const filteredSelectedCount = computed(() => table.value?.tableApi?.getFilteredSelectedRowModel?.()?.rows?.length ?? 0)
-const filteredRowsCount = computed(() => table.value?.tableApi?.getFilteredRowModel?.()?.rows?.length ?? 0)
-
-async function withSelectedLeads(action: (leadId: string) => Promise<unknown>, successTitle: string) {
-  if (!selectedLeadIds.value.length) return
-  bulkLoading.value = true
-  try {
-    const ids = [...selectedLeadIds.value]
-    await Promise.all(ids.map((id: string) => action(id)))
-    rowSelection.value = {}
-    await queryClient.invalidateQueries({ queryKey: ['leads'] })
-    toast.add({
-      title: successTitle,
-      description: `Обработано лидов: ${ids.length}`,
-      color: 'success'
-    })
-  } catch (e: any) {
-    toast.add({
-      title: 'Ошибка массовой операции',
-      description: e?.message || 'Не удалось применить изменения',
-      color: 'error'
-    })
-  } finally {
-    bulkLoading.value = false
-  }
-}
-
-async function bulkArchive() {
-  await withSelectedLeads(
-    leadId => $fetch(`/api/leads/${leadId}/status`, { method: 'PATCH', body: { status: 'rejected' } }),
-    'Лиды перемещены в архив'
-  )
-}
-
-async function bulkUpdateStatus() {
-  await withSelectedLeads(
-    leadId => $fetch(`/api/leads/${leadId}/status`, { method: 'PATCH', body: { status: bulkStatus.value } }),
-    `Обновлен статус: ${statusLabel[bulkStatus.value]}`
-  )
-}
-
-async function bulkAssignCompany() {
-  if (!bulkCompanyId.value) return
-  const companyName = companies.value.find(c => c.id === bulkCompanyId.value)?.name ?? bulkCompanyId.value
-  await withSelectedLeads(
-    leadId => $fetch(`/api/leads/${leadId}/merchant`, { method: 'PUT', body: { merchant_id: bulkCompanyId.value } }),
-    `Компания назначена: ${companyName}`
-  )
 }
 
 function exportCSV() {
-  const rows = (table.value?.tableApi?.getFilteredRowModel().rows ?? []) as Array<{ original: Lead }>
-  const headers = ['ID', 'Имя', 'Контакт', 'Чат', 'Компания', 'Тип', 'Статус', 'Следующий шаг', 'Гео', 'Сигналы', 'Последний']
-  const csvRows = rows.map((row: { original: Lead }) => {
-    const l = row.original
-    return [
-      l.id,
-      l.name,
-      l.contact,
-      l.chatTitle,
-      l.company ?? l.merchantId ?? '',
-      l.semanticCategory ?? 'leads',
-      l.status,
-      nextActionLabel(l.status),
-      (l.geo ?? []).join('; '),
-      l.signalsCount,
-      l.lastSeenAt ?? ''
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
-  })
+  const headers = ['ID', 'Имя', 'Контакт', 'Чат', 'Категория', 'Источник', 'Скор', 'Сигналы', 'Последний']
+  const csvRows = groupedScopedLeads.value.map((lead: GroupedLead) => [
+    lead.id,
+    lead.name,
+    lead.contact,
+    lead.chatTitle,
+    categoryLabel(lead.semanticCategory),
+    qualificationSourceLabel(lead.qualificationSource),
+    scorePercent(lead.score) ?? '',
+    lead.signalsCount ?? 1,
+    lead.lastSeenAt ?? ''
+  ].map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
+
   const csv = [headers.join(','), ...csvRows].join('\n')
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `лиды_${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `квалифицированные_лиды_${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
   URL.revokeObjectURL(url)
 }
 </script>
@@ -524,16 +282,17 @@ function exportCSV() {
         </template>
       </UDashboardNavbar>
     </template>
+
     <template #body>
-      <div class="flex flex-wrap items-center justify-between gap-1.5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <UInput
           v-model="contact"
           class="max-w-sm"
           icon="i-lucide-search"
-          placeholder="Фильтр по контакту..."
+          placeholder="Поиск по контакту, тексту или чату..."
         />
 
-        <div class="flex flex-wrap items-center gap-1.5">
+        <div class="flex flex-wrap items-center gap-2">
           <USelect
             v-model="categoryFilter"
             :items="[
@@ -552,6 +311,7 @@ function exportCSV() {
             placeholder="Фильтр чата"
             class="min-w-52"
           />
+
           <UButton
             label="Экспорт"
             color="neutral"
@@ -559,151 +319,175 @@ function exportCSV() {
             icon="i-lucide-download"
             @click="exportCSV"
           />
-
-          <UDropdownMenu
-            :items="
-              table?.tableApi
-                ?.getAllColumns()
-                .filter((column: any) => column.getCanHide())
-                .map((column: any) => ({
-                  label: upperFirst(column.id),
-                  type: 'checkbox' as const,
-                  checked: column.getIsVisible(),
-                  onUpdateChecked(checked: boolean) {
-                    table?.tableApi?.getColumn(column.id)?.toggleVisibility(!!checked)
-                  },
-                  onSelect(e?: Event) {
-                    e?.preventDefault()
-                  }
-                }))
-            "
-            :content="{ align: 'end' }"
-          >
-            <UButton
-              label="Видимость"
-              color="neutral"
-              variant="outline"
-              trailing-icon="i-lucide-settings-2"
-            />
-          </UDropdownMenu>
         </div>
       </div>
 
-      <div v-if="selectedLeadIds.length" class="rounded-lg border border-default p-3 space-y-2">
-        <p class="text-xs text-muted">
-          Bulk actions: выбрано {{ selectedLeadIds.length }} лидов
-        </p>
-        <div class="flex flex-wrap items-center gap-2">
-          <UButton
-            size="xs"
-            color="neutral"
-            variant="soft"
-            :loading="bulkLoading"
-            @click="bulkArchive"
-          >
-            Архивировать
-          </UButton>
-          <USelect
-            v-model="bulkStatus"
-            :items="[
-              { label: 'Новый', value: 'new' },
-              { label: 'Первичный контакт', value: 'contacted' },
-              { label: 'В работе', value: 'qualified' },
-              { label: 'Сделка / подключен', value: 'converted' },
-              { label: 'Мусор / закрыт', value: 'rejected' }
-            ]"
-            size="xs"
-            class="min-w-44"
-          />
-          <UButton
-            size="xs"
-            color="primary"
-            variant="soft"
-            :loading="bulkLoading"
-            @click="bulkUpdateStatus"
-          >
-            Сменить статус
-          </UButton>
-          <USelect
-            v-model="bulkCompanyId"
-            :items="companySelectItems"
-            :loading="companiesLoading"
-            placeholder="Назначить компанию..."
-            size="xs"
-            class="min-w-56"
-          />
-          <UButton
-            size="xs"
-            color="info"
-            variant="soft"
-            :loading="bulkLoading"
-            :disabled="!bulkCompanyId"
-            @click="bulkAssignCompany"
-          >
-            Назначить
-          </UButton>
-        </div>
+      <div v-if="isPending" class="space-y-3 py-4">
+        <USkeleton class="h-24 w-full" />
+        <USkeleton class="h-24 w-full" />
+        <USkeleton class="h-24 w-full" />
       </div>
 
-      <UTable
-        v-if="hydrated"
-        ref="table"
-        v-model:column-filters="columnFilters"
-        v-model:column-visibility="columnVisibility"
-        v-model:row-selection="rowSelection"
-        class="shrink-0"
-        :data="groupedScopedLeads"
-        :columns="columns"
-        :loading="isPending"
-        :ui="{
-          base: 'table-fixed border-separate border-spacing-0',
-          thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-          tbody: '[&>tr]:last:[&>td]:border-b-0',
-          th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-          td: 'border-b border-default',
-          separator: 'h-0'
-        }"
-      />
-      <div v-else class="space-y-2">
-        <USkeleton class="h-12 w-full" />
-        <USkeleton class="h-12 w-full" />
-        <USkeleton class="h-12 w-full" />
+      <div v-else-if="!groupedScopedLeads.length" class="py-6">
+        <UAlert
+          color="neutral"
+          variant="soft"
+          title="Нет лидов"
+          description="Подходящие сигналы появятся здесь после квалификации."
+        />
       </div>
 
-      <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto">
-        <div class="text-sm text-muted">
-          <template v-if="filteredSelectedCount">
-            Выбрано {{ filteredSelectedCount }} из {{ filteredRowsCount }} лидов.
+      <div v-else-if="hydrated" class="space-y-4">
+        <DynamicScroller
+          :items="groupedScopedLeads"
+          key-field="id"
+          :min-item-size="168"
+          class="h-[calc(100vh-18rem)] min-h-[28rem] overflow-y-auto rounded-lg border border-default"
+          @scroll-end="handleLoadMore"
+        >
+          <template #default="{ item, index, active }">
+            <DynamicScrollerItem
+              :item="item"
+              :active="active"
+              :size-dependencies="scrollerSizeDependencies(item as GroupedLead)"
+              :data-index="index"
+            >
+              <template v-for="lead in [item as GroupedLead]" :key="lead.id">
+                <div class="border-b border-default last:border-b-0">
+                  <div class="flex flex-col gap-3 p-4 sm:p-5">
+                    <div class="flex items-start justify-between gap-3">
+                      <button
+                        type="button"
+                        class="flex min-w-0 items-center gap-3 text-left"
+                        @click="openLead(lead.id)"
+                      >
+                        <UAvatar
+                          v-bind="lead.avatar"
+                          :alt="lead.name"
+                          size="lg"
+                        />
+                        <div class="min-w-0 space-y-1">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <p class="truncate font-medium text-highlighted">
+                              {{ lead.name || 'Без имени' }}
+                            </p>
+                            <UBadge
+                              :label="categoryLabel(lead.semanticCategory)"
+                              :color="categoryColor(lead.semanticCategory)"
+                              variant="subtle"
+                              size="xs"
+                            />
+                            <UBadge
+                              v-if="lead.qualificationSource"
+                              :label="qualificationSourceLabel(lead.qualificationSource)"
+                              :color="qualificationSourceColor(lead.qualificationSource)"
+                              variant="soft"
+                              size="xs"
+                            />
+                            <UBadge
+                              v-if="scorePercent(lead.score) !== null"
+                              :label="`${scorePercent(lead.score)}%`"
+                              color="neutral"
+                              variant="soft"
+                              size="xs"
+                            />
+                          </div>
+                          <p class="line-clamp-2 text-sm text-muted break-words">
+                            {{ lead.text || 'Текст сигнала недоступен' }}
+                          </p>
+                        </div>
+                      </button>
+
+                      <div class="flex items-center gap-1">
+                        <UButton
+                          icon="i-lucide-eye"
+                          color="neutral"
+                          variant="ghost"
+                          size="sm"
+                          square
+                          title="Открыть карточку"
+                          @click="openLead(lead.id)"
+                        />
+                        <UButton
+                          icon="i-lucide-trash-2"
+                          color="error"
+                          variant="ghost"
+                          size="sm"
+                          square
+                          title="Удалить лид"
+                          @click="deleteLead(lead.id, lead.name)"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
+                      <span v-if="lead.contact">Контакт: {{ lead.contact }}</span>
+                      <span v-if="lead.chatTitle">Чат: {{ lead.chatTitle }}</span>
+                      <span>Сигналов: {{ lead.signalsCount ?? 1 }}</span>
+                      <span>Последний: {{ formatLastSeen(lead.lastSeenAt) }}</span>
+                      <span v-if="lead.company">Компания: {{ lead.company }}</span>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                      <UButton
+                        v-if="buildContactHref(lead.contact)"
+                        color="neutral"
+                        variant="outline"
+                        size="xs"
+                        icon="i-lucide-send"
+                        :href="buildContactHref(lead.contact)"
+                        target="_blank"
+                      >
+                        Написать
+                      </UButton>
+                      <UButton
+                        color="neutral"
+                        variant="ghost"
+                        size="xs"
+                        trailing-icon="i-lucide-arrow-right"
+                        @click="openLead(lead.id)"
+                      >
+                        Открыть детали
+                      </UButton>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </DynamicScrollerItem>
           </template>
-          <template v-else>
-            Показано {{ filteredRowsCount }} лидов.
-          </template>
-        </div>
-      </div>
+        </DynamicScroller>
 
-      <div ref="loadMoreTrigger" class="py-4">
-        <div v-if="isFetchingNextPage" class="space-y-2">
-          <USkeleton class="h-12 w-full" />
-          <USkeleton class="h-12 w-full" />
-        </div>
-        <div v-else-if="hasNextPage" class="space-y-2">
+        <div class="space-y-2">
           <p class="text-xs text-center text-muted">
-            Загружено {{ loadedLeadsCount }} лидов. Это не весь список.
+            <template v-if="hasNextPage">
+              Загружено {{ loadedLeadsCount }} лидов. Список продолжится при прокрутке вниз.
+            </template>
+            <template v-else>
+              Показано {{ loadedLeadsCount }} лидов.
+            </template>
           </p>
-          <div class="flex justify-center">
+
+          <div v-if="isFetchingNextPage" class="space-y-2">
+            <USkeleton class="h-16 w-full" />
+            <USkeleton class="h-16 w-full" />
+          </div>
+
+          <div v-else-if="hasNextPage" class="flex justify-center">
             <UButton
               size="sm"
               color="neutral"
               variant="soft"
-              @click="fetchNextPage()"
+              @click="handleLoadMore"
             >
               Загрузить ещё лиды
             </UButton>
           </div>
         </div>
-        <p v-else class="text-xs text-center text-muted">
-          Показаны все загруженные лиды: {{ loadedLeadsCount }}
-        </p>
+      </div>
+
+      <div v-else class="space-y-2 py-4">
+        <USkeleton class="h-24 w-full" />
+        <USkeleton class="h-24 w-full" />
       </div>
     </template>
   </UDashboardPanel>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { breakpointsTailwind, useIntersectionObserver } from '@vueuse/core'
+import { breakpointsTailwind } from '@vueuse/core'
 import type { CursorPage, Mail, SignalItem } from '~/types'
 
 definePageMeta({
@@ -43,7 +43,6 @@ const toast = useToast()
 const queryClient = useQueryClient()
 const route = useRoute()
 const router = useRouter()
-const loadMoreTrigger = useTemplateRef<HTMLElement | null>('loadMoreTrigger')
 const hydrated = ref(false)
 const signalsQueryKey = computed(() => ['signals', selectedCategory.value, showArchived.value] as const)
 
@@ -232,10 +231,10 @@ watch([selectedCategory], ([category]) => {
   router.replace({ query: nextQuery })
 })
 
-useIntersectionObserver(loadMoreTrigger, async ([entry]) => {
-  if (!entry?.isIntersecting || !hasNextPage.value || isFetchingNextPage.value) return
+async function loadMoreSignals() {
+  if (!hasNextPage.value || isFetchingNextPage.value) return
   await fetchNextPage()
-})
+}
 
 function onFlagged(field: string, value: boolean) {
   if (!selectedSignal.value || !signals.value) return
@@ -426,23 +425,26 @@ async function runSelectedNoiseCleanup() {
         v-model="selectedSignal"
         v-model:selected-ids="selectedSignalIds"
         :mails="mailboxSignals"
-        class="pb-4"
+        :can-load-more="hasNextPage"
+        :loading-more="isFetchingNextPage"
+        class="pb-2"
+        @load-more="loadMoreSignals"
       />
-      <div ref="loadMoreTrigger" class="px-4 py-4">
+      <div class="px-4 py-4">
         <div v-if="isFetchingNextPage" class="space-y-2">
           <USkeleton class="h-14 w-full" />
           <USkeleton class="h-14 w-full" />
         </div>
         <div v-else-if="hasNextPage" class="space-y-2">
           <p class="text-xs text-center text-muted">
-            Загружено {{ loadedSignalsCount }} сигналов. Это не весь список.
+            Загружено {{ loadedSignalsCount }} сигналов. Дальше список догрузится при прокрутке вниз.
           </p>
           <div class="flex justify-center">
             <UButton
               size="sm"
               color="neutral"
               variant="soft"
-              @click="fetchNextPage()"
+              @click="loadMoreSignals"
             >
               Загрузить ещё сигналы
             </UButton>

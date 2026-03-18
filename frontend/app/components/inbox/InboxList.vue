@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { format, isToday } from 'date-fns'
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import type { Mail } from '~/types'
 
 const props = defineProps<{
   mails: Mail[]
+  canLoadMore?: boolean
+  loadingMore?: boolean
+}>()
+
+const emit = defineEmits<{
+  loadMore: []
 }>()
 
 const mailsRefs = ref<Record<string, Element | null>>({})
@@ -94,6 +101,11 @@ function toggleSelected(signalId: string, checked: boolean | 'indeterminate') {
   selectedIds.value = selectedIds.value.filter(id => id !== signalId)
 }
 
+function maybeLoadMore() {
+  if (!props.canLoadMore || props.loadingMore) return
+  emit('loadMore')
+}
+
 watch(selectedMail, () => {
   if (!selectedMail.value) {
     return
@@ -127,139 +139,165 @@ defineShortcuts({
 </script>
 
 <template>
-  <div class="overflow-y-auto divide-y divide-default" aria-label="Список сигналов">
-    <div
-      v-for="(mail, index) in mails"
-      :key="mail.signalId"
-      :ref="(el) => { mailsRefs[mail.signalId] = el as Element | null }"
-    >
-      <button
-        type="button"
-        class="w-full text-left p-4 sm:px-6 text-sm cursor-pointer border-l-2 transition-colors"
-        :class="[
-          mail.isIgnored ? 'opacity-50' : '',
-          mail.unread ? 'text-highlighted' : 'text-toned',
-          selectedMail && selectedMail.signalId === mail.signalId
-            ? 'border-primary bg-primary/10'
-            : 'border-bg hover:border-primary hover:bg-primary/5'
+  <DynamicScroller
+    :items="mails"
+    key-field="signalId"
+    :min-item-size="152"
+    class="h-[calc(100vh-18rem)] min-h-[24rem] divide-y divide-default overflow-y-auto"
+    aria-label="Список сигналов"
+    @scroll-end="maybeLoadMore"
+  >
+    <template #default="{ item, index, active }">
+      <DynamicScrollerItem
+        :item="item"
+        :active="active"
+        :size-dependencies="[
+          (item as Mail).subject,
+          (item as Mail).body,
+          (item as Mail).category,
+          (item as Mail).categoryReason,
+          (item as Mail).merchantName,
+          (item as Mail).categoryAssignedAt,
+          (item as Mail).otherChatsCount,
+          (item as Mail).isIgnored,
+          (item as Mail).isTeamMember
         ]"
-        :aria-label="`Открыть сигнал ${mail.subject}`"
-        @click="selectedMail = mail"
+        :data-index="index"
       >
-        <div class="mb-1.5" @click.stop>
-          <UCheckbox
-            :model-value="isSelected(mail.signalId)"
-            aria-label="Выбрать сигнал"
-            @update:model-value="(value) => toggleSelected(mail.signalId, value)"
-          />
-        </div>
-        <div class="flex items-center justify-between" :class="[mail.unread && 'font-semibold']">
-          <div class="flex items-center gap-1.5">
-            {{ mail.from.name }}
-
-            <UTooltip v-if="mail.isDm" text="Личное сообщение">
-              <UIcon name="i-heroicons-envelope" class="size-3.5 text-muted shrink-0" />
-            </UTooltip>
-
-            <UBadge
-              v-if="mail.unread"
-              color="warning"
-              variant="subtle"
-              label="Новый"
-            />
-          </div>
-
-          <span>{{ formatListDate(mail.date) }}</span>
-        </div>
-        <p class="truncate" :class="[mail.unread && 'font-semibold']">
-          {{ mail.subject }}
-        </p>
-        <p class="text-dimmed line-clamp-1">
-          {{ mail.body }}
-        </p>
-
-        <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
-          <UBadge
-            :label="categoryLabel(mail.category)"
-            :color="categoryColor(mail.category)"
-            variant="subtle"
-            size="xs"
-          />
-          <UBadge
-            v-if="bestBusinessMatch(mail)"
-            :label="bestBusinessMatch(mail)?.label === currentCategoryShortLabel(mail)
-              ? `${bestBusinessMatch(mail)?.percent}%`
-              : `${bestBusinessMatch(mail)?.label} ${bestBusinessMatch(mail)?.percent}%`"
-            color="neutral"
-            variant="soft"
-            size="xs"
-          />
-          <UBadge
-            v-if="mail.category !== 'noise'"
-            :label="mail.leadId ? 'В лид-воронке' : 'Только сигнал, не лид'"
-            :color="mail.leadId ? 'success' : 'warning'"
-            variant="soft"
-            size="xs"
-          />
-          <UBadge
-            v-if="mail.categoryAssignedAt"
-            icon="i-lucide-clock"
-            :label="formatListDate(mail.categoryAssignedAt)"
-            color="neutral"
-            variant="soft"
-            size="xs"
-          />
-          <UBadge
-            v-if="mail.semanticFlags?.includes('has_traffic')"
-            icon="i-lucide-check-circle-2"
-            label="Трафик"
-            color="success"
-            variant="subtle"
-            size="xs"
-          />
-          <UBadge
-            v-if="mail.merchantName"
-            icon="i-lucide-building-2"
-            :label="mail.merchantName"
-            color="info"
-            variant="subtle"
-            size="xs"
-          />
-          <span
-            v-if="mail.categoryReason"
-            class="text-[11px] text-muted"
+        <template v-for="mail in [item as Mail]" :key="mail.signalId">
+          <div
+            :ref="(el) => { mailsRefs[mail.signalId] = el as Element | null }"
           >
-            {{ mail.categoryReason }}
-          </span>
-        </div>
+          <button
+            type="button"
+            class="w-full text-left p-4 sm:px-6 text-sm cursor-pointer border-l-2 transition-colors"
+            :class="[
+              mail.isIgnored ? 'opacity-50' : '',
+              mail.unread ? 'text-highlighted' : 'text-toned',
+              selectedMail && selectedMail.signalId === mail.signalId
+                ? 'border-primary bg-primary/10'
+                : 'border-bg hover:border-primary hover:bg-primary/5'
+            ]"
+            :aria-label="`Открыть сигнал ${mail.subject}`"
+            @click="selectedMail = mail"
+          >
+            <div class="mb-1.5" @click.stop>
+              <UCheckbox
+                :model-value="isSelected(mail.signalId)"
+                aria-label="Выбрать сигнал"
+                @update:model-value="(value) => toggleSelected(mail.signalId, value)"
+              />
+            </div>
+            <div class="flex items-center justify-between" :class="[mail.unread && 'font-semibold']">
+              <div class="flex items-center gap-1.5">
+                {{ mail.from.name }}
 
-        <div v-if="mail.isTeamMember || mail.isIgnored || (mail.showMultiAccountBadges !== false && mail.otherChatsCount > 1)" class="flex items-center gap-1.5 mt-1.5 flex-wrap">
-          <UBadge
-            v-if="mail.isTeamMember"
-            icon="i-lucide-users"
-            label="Команда"
-            color="info"
-            variant="subtle"
-            size="xs"
-          />
-          <UBadge
-            v-if="mail.isIgnored"
-            icon="i-lucide-archive"
-            label="Архив"
-            color="warning"
-            variant="subtle"
-            size="xs"
-          />
-          <UBadge
-            v-if="mail.showMultiAccountBadges !== false && mail.otherChatsCount > 1"
-            icon="i-lucide-messages-square"
-            :label="`${mail.otherChatsCount} чатов`"
-            color="warning"
-            variant="subtle"
-            size="xs"
-          />
-        </div>
-      </button>
-    </div>
-  </div>
+                <UTooltip v-if="mail.isDm" text="Личное сообщение">
+                  <UIcon name="i-heroicons-envelope" class="size-3.5 text-muted shrink-0" />
+                </UTooltip>
+
+                <UBadge
+                  v-if="mail.unread"
+                  color="warning"
+                  variant="subtle"
+                  label="Новый"
+                />
+              </div>
+
+              <span>{{ formatListDate(mail.date) }}</span>
+            </div>
+            <p class="truncate" :class="[mail.unread && 'font-semibold']">
+              {{ mail.subject }}
+            </p>
+            <p class="text-dimmed line-clamp-1">
+              {{ mail.body }}
+            </p>
+
+            <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <UBadge
+                :label="categoryLabel(mail.category)"
+                :color="categoryColor(mail.category)"
+                variant="subtle"
+                size="xs"
+              />
+              <UBadge
+                v-if="bestBusinessMatch(mail)"
+                :label="bestBusinessMatch(mail)?.label === currentCategoryShortLabel(mail)
+                  ? `${bestBusinessMatch(mail)?.percent}%`
+                  : `${bestBusinessMatch(mail)?.label} ${bestBusinessMatch(mail)?.percent}%`"
+                color="neutral"
+                variant="soft"
+                size="xs"
+              />
+              <UBadge
+                v-if="mail.category !== 'noise'"
+                :label="mail.leadId ? 'В квалифицированных лидах' : 'Только сигнал'"
+                :color="mail.leadId ? 'success' : 'warning'"
+                variant="soft"
+                size="xs"
+              />
+              <UBadge
+                v-if="mail.categoryAssignedAt"
+                icon="i-lucide-clock"
+                :label="formatListDate(mail.categoryAssignedAt)"
+                color="neutral"
+                variant="soft"
+                size="xs"
+              />
+              <UBadge
+                v-if="mail.semanticFlags?.includes('has_traffic')"
+                icon="i-lucide-check-circle-2"
+                label="Трафик"
+                color="success"
+                variant="subtle"
+                size="xs"
+              />
+              <UBadge
+                v-if="mail.merchantName"
+                icon="i-lucide-building-2"
+                :label="mail.merchantName"
+                color="info"
+                variant="subtle"
+                size="xs"
+              />
+              <span
+                v-if="mail.categoryReason"
+                class="text-[11px] text-muted"
+              >
+                {{ mail.categoryReason }}
+              </span>
+            </div>
+
+            <div v-if="mail.isTeamMember || mail.isIgnored || (mail.showMultiAccountBadges !== false && mail.otherChatsCount > 1)" class="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <UBadge
+                v-if="mail.isTeamMember"
+                icon="i-lucide-users"
+                label="Команда"
+                color="info"
+                variant="subtle"
+                size="xs"
+              />
+              <UBadge
+                v-if="mail.isIgnored"
+                icon="i-lucide-ban"
+                label="Шум"
+                color="warning"
+                variant="subtle"
+                size="xs"
+              />
+              <UBadge
+                v-if="mail.showMultiAccountBadges !== false && mail.otherChatsCount > 1"
+                icon="i-lucide-messages-square"
+                :label="`${mail.otherChatsCount} чатов`"
+                color="warning"
+                variant="subtle"
+                size="xs"
+              />
+            </div>
+          </button>
+          </div>
+        </template>
+      </DynamicScrollerItem>
+    </template>
+  </DynamicScroller>
 </template>

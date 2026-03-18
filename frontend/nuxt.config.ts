@@ -12,7 +12,7 @@ export default defineNuxtConfig({
     enabled: process.env.NODE_ENV !== 'production'
   },
 
-  css: ['~/assets/css/main.css'],
+  css: ['~/assets/css/main.css', 'vue-virtual-scroller/dist/vue-virtual-scroller.css'],
 
   runtimeConfig: {
     apiBaseInternal: process.env.NUXT_API_BASE_INTERNAL || 'http://localhost:8080'

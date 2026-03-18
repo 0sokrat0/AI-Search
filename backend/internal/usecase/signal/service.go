@@ -178,6 +178,10 @@ func (s *Service) FeedbackSignal(ctx context.Context, in FeedbackInput) (Feedbac
 		return FeedbackResult{}, err
 	}
 
+	if err := s.messageRepo.SetUserApproval(ctx, in.TenantID, in.MessageID, isLeadForTraining); err != nil {
+		return FeedbackResult{}, err
+	}
+
 	score := 1.0
 	if msg.SimilarityScore() != nil {
 		score = *msg.SimilarityScore()
@@ -321,6 +325,20 @@ func (s *Service) GetSenderHistory(ctx context.Context, tenantID, senderIDStr st
 	return out, nil
 }
 
+func (s *Service) GetEvaluatedSignals(ctx context.Context, tenantID string, approved *bool, limit, offset int) ([]DTO, error) {
+	msgs, err := s.messageRepo.GetEvaluatedSignals(ctx, tenantID, approved, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]DTO, 0, len(msgs))
+	for _, m := range msgs {
+		dto := toSignalDTO(m, 0)
+		s.applyInboxCategory(ctx, &dto)
+		out = append(out, dto)
+	}
+	return out, nil
+}
+
 func toSignalDTO(m *message.Message, otherChatsCount int) DTO {
 	name := strings.TrimSpace(m.SenderName())
 	if name == "" || strings.HasPrefix(name, "Dialog ") || strings.HasPrefix(name, "User ") {
@@ -366,6 +384,8 @@ func toSignalDTO(m *message.Message, otherChatsCount int) DTO {
 		IsNew:                  !m.IsViewed(),
 		OtherChatsCount:        otherChatsCount,
 		SemanticFlags:          nil,
+		UserApproved:           m.UserApproved(),
+		UserApprovedAt:         m.UserApprovedAt(),
 	}
 }
 

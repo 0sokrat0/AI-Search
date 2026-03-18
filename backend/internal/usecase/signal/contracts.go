@@ -25,35 +25,37 @@ type InboxQuery struct {
 }
 
 type DTO struct {
-	ID                     string   `json:"id"`
-	ChatTitle              string   `json:"chatTitle"`
-	FromName               string   `json:"fromName"`
-	Contact                string   `json:"contact"`
-	SenderTelegramID       int64    `json:"senderTelegramId"`
-	MerchantID             string   `json:"merchantId"`
-	Text                   string   `json:"text"`
-	Date                   string   `json:"date"`
-	LeadID                 *string  `json:"leadId"`
-	LeadScore              *float64 `json:"leadScore"`
-	SimilarityScore        *float64 `json:"similarityScore"`
-	ClassifiedAsLead       *bool    `json:"classifiedAsLead"`
-	SemanticDirection      *string  `json:"semanticDirection"`
-	SemanticCategory       string   `json:"semanticCategory"`
-	ClassificationReason   string   `json:"classificationReason"`
-	TraderScore            float64  `json:"traderScore"`
-	MerchantScore          float64  `json:"merchantScore"`
-	ProcessingRequestScore float64  `json:"processingRequestScore"`
-	PSOfferScore           float64  `json:"psOfferScore"`
-	NoiseScore             float64  `json:"noiseScore"`
-	PrimaryLabel           string   `json:"primaryLabel"`
-	PrimaryPercent         int      `json:"primaryPercent"`
-	IsIgnored              bool     `json:"isIgnored"`
-	IsTeamMember           bool     `json:"isTeamMember"`
-	IsSpamSender           bool     `json:"isSpamSender"`
-	IsViewed               bool     `json:"isViewed"`
-	IsNew                  bool     `json:"isNew"`
-	OtherChatsCount        int      `json:"otherChatsCount"`
-	SemanticFlags          []string `json:"semanticFlags"`
+	ID                     string     `json:"id"`
+	ChatTitle              string     `json:"chatTitle"`
+	FromName               string     `json:"fromName"`
+	Contact                string     `json:"contact"`
+	SenderTelegramID       int64      `json:"senderTelegramId"`
+	MerchantID             string     `json:"merchantId"`
+	Text                   string     `json:"text"`
+	Date                   string     `json:"date"`
+	LeadID                 *string    `json:"leadId"`
+	LeadScore              *float64   `json:"leadScore"`
+	SimilarityScore        *float64   `json:"similarityScore"`
+	ClassifiedAsLead       *bool      `json:"classifiedAsLead"`
+	SemanticDirection      *string    `json:"semanticDirection"`
+	SemanticCategory       string     `json:"semanticCategory"`
+	ClassificationReason   string     `json:"classificationReason"`
+	TraderScore            float64    `json:"traderScore"`
+	MerchantScore          float64    `json:"merchantScore"`
+	ProcessingRequestScore float64    `json:"processingRequestScore"`
+	PSOfferScore           float64    `json:"psOfferScore"`
+	NoiseScore             float64    `json:"noiseScore"`
+	PrimaryLabel           string     `json:"primaryLabel"`
+	PrimaryPercent         int        `json:"primaryPercent"`
+	IsIgnored              bool       `json:"isIgnored"`
+	IsTeamMember           bool       `json:"isTeamMember"`
+	IsSpamSender           bool       `json:"isSpamSender"`
+	IsViewed               bool       `json:"isViewed"`
+	IsNew                  bool       `json:"isNew"`
+	OtherChatsCount        int        `json:"otherChatsCount"`
+	SemanticFlags          []string   `json:"semanticFlags"`
+	UserApproved           *bool      `json:"userApproved,omitempty"`
+	UserApprovedAt         *time.Time `json:"userApprovedAt,omitempty"`
 }
 
 type FeedbackInput struct {
@@ -86,4 +88,5 @@ type ServiceAPI interface {
 	FeedbackSignal(ctx context.Context, in FeedbackInput) (FeedbackResult, error)
 	FlagSignal(ctx context.Context, in FlagInput) error
 	GetSenderHistory(ctx context.Context, tenantID, senderID string, limit int) ([]DTO, error)
+	GetEvaluatedSignals(ctx context.Context, tenantID string, approved *bool, limit, offset int) ([]DTO, error)
 }

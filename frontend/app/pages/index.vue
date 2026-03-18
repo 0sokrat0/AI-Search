@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { differenceInCalendarDays, sub } from 'date-fns'
-import type { Period, IngestStats } from '~/types'
+import { differenceInCalendarDays, sub, formatDistanceToNow, isValid } from 'date-fns'
+import type { Period, IngestStats, SignalItem } from '~/types'
 
 definePageMeta({
   middleware: 'auth'
@@ -47,6 +47,22 @@ const candidateRate = computed(() => {
   if (!s || !s.totalSignals) return 0
   return Math.round((s.leadCandidates / s.totalSignals) * 100)
 })
+
+const { data: recentEvaluated } = useAuthQuery<SignalItem[]>(
+  ['signals', 'evaluated', 'recent'],
+  () => $fetch<SignalItem[]>('/api/signals/evaluated', { query: { limit: 8 } })
+)
+
+function formatEvalDate(value?: string | null): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (!isValid(d)) return '—'
+  return formatDistanceToNow(d, { addSuffix: true })
+}
+
+function getInitial(name?: string): string {
+  return (name || '?').charAt(0).toUpperCase()
+}
 </script>
 
 <template>
@@ -110,6 +126,64 @@ const candidateRate = computed(() => {
           </div>
         </UCard>
       </div>
+
+      <UCard class="mt-4">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-check-check" class="size-4 text-muted" />
+            <h3 class="font-semibold">Последние оценки</h3>
+          </div>
+        </template>
+
+        <div v-if="recentEvaluated && recentEvaluated.length" class="divide-y divide-default">
+          <div
+            v-for="signal in recentEvaluated"
+            :key="signal.id"
+            class="flex items-center gap-3 py-2.5"
+          >
+            <UAvatar
+              :alt="getInitial(signal.fromName)"
+              :color="signal.userApproved === true ? 'success' : 'error'"
+              variant="soft"
+              size="sm"
+            >
+              {{ getInitial(signal.fromName) }}
+            </UAvatar>
+
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium truncate">{{ signal.fromName }}</p>
+              <p class="text-xs text-muted truncate">{{ signal.chatTitle }}</p>
+            </div>
+
+            <div class="flex flex-col items-end gap-1 shrink-0">
+              <span class="text-xs text-muted">{{ formatEvalDate(signal.userApprovedAt) }}</span>
+              <UBadge
+                :color="signal.userApproved === true ? 'success' : 'error'"
+                variant="subtle"
+                size="xs"
+              >
+                {{ signal.userApproved === true ? 'Одобрен' : 'Отклонён' }}
+              </UBadge>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="py-8 text-center text-sm text-muted">
+          Оценок пока нет — сходите в Входящие
+        </div>
+
+        <template #footer>
+          <UButton
+            to="/leads?tab=evaluated"
+            variant="ghost"
+            color="neutral"
+            size="xs"
+            icon="i-lucide-list-checks"
+            label="Смотреть все оценки"
+            class="w-full"
+          />
+        </template>
+      </UCard>
     </template>
   </UDashboardPanel>
 </template>

@@ -45,6 +45,8 @@ type Message struct {
 	classifiedAsLead  *bool
 	semanticDirection *string
 	metadata          Metadata
+	userApproved      *bool
+	userApprovedAt    *time.Time
 }
 
 func New(
@@ -93,6 +95,8 @@ func Restore(
 	classifiedAsLead *bool,
 	semanticDirection *string,
 	meta Metadata,
+	userApproved *bool,
+	userApprovedAt *time.Time,
 ) *Message {
 	return &Message{
 		id:                id,
@@ -116,6 +120,8 @@ func Restore(
 		classifiedAsLead:  classifiedAsLead,
 		semanticDirection: semanticDirection,
 		metadata:          meta,
+		userApproved:      userApproved,
+		userApprovedAt:    userApprovedAt,
 	}
 }
 
@@ -143,6 +149,8 @@ func (m *Message) SimilarityScore() *float64  { return m.similarityScore }
 func (m *Message) ClassifiedAsLead() *bool    { return m.classifiedAsLead }
 func (m *Message) SemanticDirection() *string { return m.semanticDirection }
 func (m *Message) Metadata() Metadata         { return m.metadata }
+func (m *Message) UserApproved() *bool        { return m.userApproved }
+func (m *Message) UserApprovedAt() *time.Time { return m.userApprovedAt }
 
 func (m *Message) IsDM() bool           { return m.isDM }
 func (m *Message) SetIgnored(v bool)     { m.isIgnored = v }
@@ -167,6 +175,12 @@ func (m *Message) SetSenderTrust(scam, fake, premium bool) {
 
 func (m *Message) SetMetadata(meta Metadata) {
 	m.metadata = meta
+}
+
+func (m *Message) SetUserApproval(approved bool) {
+	m.userApproved = &approved
+	now := time.Now().UTC()
+	m.userApprovedAt = &now
 }
 
 func (m *Message) SetClassification(score float64, isLead bool) {

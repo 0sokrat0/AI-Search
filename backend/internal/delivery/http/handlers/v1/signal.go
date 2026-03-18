@@ -228,6 +228,33 @@ func (h *SignalHandler) GetSenderHistory(c *fiber.Ctx) error {
 	return response.OK(c, out)
 }
 
+func (h *SignalHandler) GetEvaluatedSignals(c *fiber.Ctx) error {
+	tenantID := tenantFromCtx(c)
+	if tenantID == "" {
+		return response.ErrorResponse(c, fiber.StatusUnauthorized, "UNAUTHORIZED", "tenant id required")
+	}
+	limit := c.QueryInt("limit", 50)
+	offset := c.QueryInt("offset", 0)
+	if limit <= 0 || limit > 500 {
+		limit = 50
+	}
+
+	var approved *bool
+	if v := c.Query("approved"); v == "true" {
+		t := true
+		approved = &t
+	} else if v == "false" {
+		f := false
+		approved = &f
+	}
+
+	out, err := h.app.GetEvaluatedSignals(c.Context(), tenantID, approved, limit, offset)
+	if err != nil {
+		return response.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+	}
+	return response.OK(c, out)
+}
+
 func normalizeInboxTab(v string) string {
 	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "lead", "leads":

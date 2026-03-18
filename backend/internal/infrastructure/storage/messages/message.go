@@ -45,6 +45,8 @@ type messageDoc struct {
 	SimilarityScore   *float64   `bson:"similarity_score,omitempty"`
 	ClassifiedAsLead  *bool      `bson:"classified_as_lead,omitempty"`
 	SemanticDirection *string    `bson:"semantic_direction,omitempty"`
+	UserApproved      *bool      `bson:"user_approved,omitempty"`
+	UserApprovedAt    *time.Time `bson:"user_approved_at,omitempty"`
 }
 
 func (r *mongoRepository) Save(ctx context.Context, m *message.Message) error {
@@ -497,6 +499,49 @@ func (r *mongoRepository) GetChartData(ctx context.Context, tenantID string, fro
 	return buckets, nil
 }
 
+func (r *mongoRepository) SetUserApproval(ctx context.Context, tenantID, id string, approved bool) error {
+	now := time.Now().UTC()
+	_, err := r.col.UpdateOne(ctx,
+		bson.M{"_id": id, "tenant_id": tenantID},
+		bson.M{"$set": bson.M{
+			"user_approved":    approved,
+			"user_approved_at": now,
+		}},
+	)
+	return err
+}
+
+func (r *mongoRepository) GetEvaluatedSignals(ctx context.Context, tenantID string, approved *bool, limit, offset int) ([]*message.Message, error) {
+	filter := bson.M{
+		"tenant_id":    tenantID,
+		"user_approved": bson.M{"$exists": true, "$ne": nil},
+	}
+	if approved != nil {
+		filter["user_approved"] = *approved
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 50
+	}
+	opts := options.Find().
+		SetSort(bson.D{{Key: "user_approved_at", Value: -1}}).
+		SetLimit(int64(limit)).
+		SetSkip(int64(offset))
+	cur, err := r.col.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+	var docs []messageDoc
+	if err := cur.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+	out := make([]*message.Message, 0, len(docs))
+	for _, d := range docs {
+		out = append(out, fromDoc(d))
+	}
+	return out, nil
+}
+
 func toDoc(m *message.Message) bson.M {
 	return bson.M{
 		"tenant_id":          m.TenantID(),
@@ -535,6 +580,7 @@ func fromDoc(d messageDoc) *message.Message {
 		d.IsIgnored, d.IsTeamMember, d.IsSpamSender, d.IsDM, d.IsViewed, d.ViewedAt,
 		d.SimilarityScore, d.ClassifiedAsLead, d.SemanticDirection,
 		message.Metadata{},
+		d.UserApproved, d.UserApprovedAt,
 	)
 	m.SetSenderTrust(d.IsScam, d.IsFake, d.IsPremium)
 	return m

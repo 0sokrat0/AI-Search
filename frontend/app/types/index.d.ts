@@ -63,6 +63,8 @@ export interface Mail {
   processingRequestScore?: number | null
   psOfferScore?: number | null
   noiseScore?: number | null
+  primaryLabel?: string | null
+  primaryPercent?: number | null
   categoryAssignedAt?: string
   senderTelegramId: number
   isIgnored: boolean
@@ -149,6 +151,8 @@ export interface SignalItem {
   processingRequestScore?: number | null
   psOfferScore?: number | null
   noiseScore?: number | null
+  primaryLabel?: string | null
+  primaryPercent?: number | null
   categoryAssignedAt?: string
   senderTelegramId: number
   isIgnored: boolean

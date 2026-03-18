@@ -26,12 +26,12 @@ function formatListDate(value?: string | null): string {
 function categoryLabel(category?: string | null): string {
   switch (String(category || '').toLowerCase()) {
     case 'traders':
-      return 'Трейдер/Поиск трейдеров'
+      return 'Трейдеры / Поиск трейдеров'
     case 'merchants':
     case 'processing_requests':
-      return 'Мерчант'
+      return 'Мерчанты'
     case 'ps_offers':
-      return 'Предложение ПС'
+      return 'Предложения от ПС'
     default:
       return 'Шум'
   }
@@ -48,6 +48,22 @@ function categoryColor(category?: string | null): 'success' | 'info' | 'warning'
       return 'primary'
     default:
       return 'neutral'
+  }
+}
+
+function bestBusinessMatch(mail: Mail): { label: string, percent: number } | null {
+  const candidates = [
+    { label: 'Трейдеры / Поиск трейдеров', score: Number(mail.traderScore ?? 0) },
+    { label: 'Мерчанты', score: Number(mail.merchantScore ?? 0) },
+    { label: 'Предложения от ПС', score: Number(mail.psOfferScore ?? 0) }
+  ]
+
+  const best = candidates.sort((a, b) => b.score - a.score)[0]
+  if (!best || best.score <= 0) return null
+
+  return {
+    label: best.label,
+    percent: Math.round(best.score * 100)
   }
 }
 
@@ -154,6 +170,20 @@ defineShortcuts({
             :label="categoryLabel(mail.category)"
             :color="categoryColor(mail.category)"
             variant="subtle"
+            size="xs"
+          />
+          <UBadge
+            v-if="bestBusinessMatch(mail)"
+            :label="`Похоже на ${bestBusinessMatch(mail)?.label}: ${bestBusinessMatch(mail)?.percent}%`"
+            color="neutral"
+            variant="soft"
+            size="xs"
+          />
+          <UBadge
+            v-if="mail.category !== 'noise'"
+            :label="mail.leadId ? 'В лид-воронке' : 'Только сигнал, не лид'"
+            :color="mail.leadId ? 'success' : 'warning'"
+            variant="soft"
             size="xs"
           />
           <UBadge

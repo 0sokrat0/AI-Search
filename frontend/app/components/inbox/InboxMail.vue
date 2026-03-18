@@ -187,9 +187,9 @@ fetchLeadBrief(props.mail.leadId)
 
 const categoryLabel = computed(() => {
   switch (props.mail.category) {
-    case 'traders': return 'Трейдер/Поиск трейдеров'
-    case 'merchants': return 'Мерчант'
-    case 'ps_offers': return 'Предложение ПС'
+    case 'traders': return 'Трейдеры / Поиск трейдеров'
+    case 'merchants': return 'Мерчанты'
+    case 'ps_offers': return 'Предложения от ПС'
     default: return 'Шум'
   }
 })
@@ -234,12 +234,40 @@ function normalizeDirection(value: string | null | undefined): string {
 const technicalDirectionLabel = computed(() => {
   const direction = normalizeDirection(props.mail.semanticDirection)
   switch (direction) {
-    case 'traders': return 'Трейдер/Поиск трейдеров'
-    case 'merchants': return 'Мерчант'
-    case 'ps_offers': return 'Предложение ПС'
+    case 'traders': return 'Трейдеры / Поиск трейдеров'
+    case 'merchants': return 'Мерчанты'
+    case 'ps_offers': return 'Предложения от ПС'
     case 'noise': return 'Шум'
     default: return ''
   }
+})
+
+const bestBusinessMatch = computed(() => {
+  const candidates = [
+    { label: 'Трейдеры / Поиск трейдеров', score: Number(props.mail.traderScore ?? 0) },
+    { label: 'Мерчанты', score: Number(props.mail.merchantScore ?? 0) },
+    { label: 'Предложения от ПС', score: Number(props.mail.psOfferScore ?? 0) }
+  ]
+
+  const best = candidates.sort((a, b) => b.score - a.score)[0]
+  if (!best || best.score <= 0) return null
+
+  return {
+    label: best.label,
+    percent: Math.round(best.score * 100)
+  }
+})
+
+const leadPipelineLabel = computed(() => {
+  if (props.mail.category === 'noise') return 'Шум'
+  if (props.mail.leadId) return 'Прошёл в квалифицированные лиды'
+  return 'Категоризирован как сигнал, но не прошёл в лиды'
+})
+
+const leadPipelineColor = computed<'success' | 'warning' | 'neutral'>(() => {
+  if (props.mail.category === 'noise') return 'neutral'
+  if (props.mail.leadId) return 'success'
+  return 'warning'
 })
 
 const showTechnicalDirection = computed(() => {
@@ -439,6 +467,19 @@ function formatDateSafe(value?: string | null): string {
           {{ categoryLabel }}
         </UBadge>
         <UBadge
+          v-if="bestBusinessMatch"
+          :label="`Похоже на ${bestBusinessMatch.label}: ${bestBusinessMatch.percent}%`"
+          color="neutral"
+          variant="soft"
+          size="xs"
+        />
+        <UBadge
+          :label="leadPipelineLabel"
+          :color="leadPipelineColor"
+          variant="soft"
+          size="xs"
+        />
+        <UBadge
           v-if="mail.semanticFlags?.includes('has_traffic')"
           icon="i-lucide-check-circle-2"
           label="Предлагают трафик"
@@ -605,6 +646,15 @@ function formatDateSafe(value?: string | null): string {
     </div>
 
     <div class="flex-1 p-4 sm:p-6 overflow-y-auto">
+      <UAlert
+        v-if="bestBusinessMatch"
+        class="mb-4"
+        color="neutral"
+        variant="soft"
+        :title="`Похожесть: ${bestBusinessMatch.label} ${bestBusinessMatch.percent}%`"
+        :description="mail.leadId ? 'Сигнал уже вошёл в квалифицированные лиды.' : 'Это объясняет категорию сигнала, но не гарантирует попадание в квалифицированные лиды: lead-воронка считается отдельно.'"
+      />
+
       <p class="whitespace-pre-wrap text-sm leading-relaxed">
         {{ mail.body }}
       </p>

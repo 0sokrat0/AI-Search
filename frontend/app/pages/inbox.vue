@@ -138,6 +138,8 @@ const allMailboxSignals = computed<Mail[]>(() => {
     processingRequestScore: signal.processingRequestScore ?? null,
     psOfferScore: signal.psOfferScore ?? null,
     noiseScore: signal.noiseScore ?? null,
+    primaryLabel: signal.primaryLabel ?? null,
+    primaryPercent: signal.primaryPercent ?? null,
     senderTelegramId: signal.senderTelegramId,
     isIgnored: signal.isIgnored,
     isTeamMember: signal.isTeamMember,

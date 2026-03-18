@@ -199,6 +199,11 @@ const bestBusinessMatch = computed(() => {
   }
 })
 
+const bestBusinessMatchTitle = computed(() => {
+  if (!bestBusinessMatch.value) return ''
+  return `${bestBusinessMatch.value.label} ${bestBusinessMatch.value.percent}%`
+})
+
 const leadPipelineLabel = computed(() => {
   if (props.mail.category === 'noise') return ''
   if (props.mail.leadId) return 'Прошёл в квалифицированные лиды'
@@ -536,8 +541,7 @@ function formatDateSafe(value?: string | null): string {
     <div class="flex-1 p-4 sm:p-6 overflow-y-auto">
       <div v-if="bestBusinessMatch" class="mb-4 rounded-xl border border-default bg-elevated/30 p-4">
         <div class="flex items-center justify-between gap-3 text-sm">
-          <span class="font-medium text-highlighted">Уверенность по категории</span>
-          <span class="font-mono text-sm">{{ bestBusinessMatch.percent }}%</span>
+          <span class="font-medium text-highlighted">{{ bestBusinessMatchTitle }}</span>
         </div>
         <div class="mt-2 h-2 overflow-hidden rounded-full bg-muted">
           <div
@@ -546,9 +550,6 @@ function formatDateSafe(value?: string | null): string {
             :style="{ width: `${bestBusinessMatch.percent}%` }"
           />
         </div>
-        <p class="mt-2 text-xs text-muted">
-          {{ leadPipelineLabel || 'Остался в шуме' }}
-        </p>
       </div>
 
       <p class="whitespace-pre-wrap text-sm leading-relaxed">

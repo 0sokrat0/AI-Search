@@ -90,6 +90,24 @@ const qualificationSourceLabel: Record<string, string> = {
   manual_approved: 'Ручная квалификация'
 }
 
+function shortCategoryLabel(category?: string | null): string {
+  switch (String(category || '').toLowerCase()) {
+    case 'traders':
+      return 'Трейдеры'
+    case 'merchants':
+      return 'Мерчанты'
+    case 'ps_offers':
+      return 'ПС'
+    case 'noise':
+      return 'Шум'
+    default:
+      return 'Категория'
+  }
+}
+
+const leadScorePercent = computed(() => Math.min(Math.round((lead.value?.score ?? 0) * 100), 100))
+const leadScoreTitle = computed(() => `${shortCategoryLabel(lead.value?.semanticCategory)} ${leadScorePercent.value}%`)
+
 function buildContactHref(raw?: string | null): string {
   const value = String(raw || '').trim()
   if (!value) return ''
@@ -347,12 +365,12 @@ watch(lead, (value) => {
           <template #header>
             <div class="flex items-center justify-between gap-2">
               <h3 class="font-semibold text-sm">
-                Уверенность ИИ: {{ Math.min(Math.round((lead.score ?? 0) * 100), 100) }}%
+                {{ leadScoreTitle }}
               </h3>
               <div class="flex-1 max-w-xs bg-muted/30 rounded-full h-1.5 ml-4">
                 <div
                   class="h-1.5 rounded-full bg-primary transition-all"
-                  :style="`width: ${Math.min(Math.round((lead.score ?? 0) * 100), 100)}%`"
+                  :style="`width: ${leadScorePercent}%`"
                 />
               </div>
             </div>

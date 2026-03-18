@@ -251,12 +251,6 @@ defineShortcuts({
             variant="subtle"
             size="xs"
           />
-          <span
-            v-if="mail.categoryReason"
-            class="text-[11px] text-muted"
-          >
-            {{ mail.categoryReason }}
-          </span>
         </div>
 
         <div v-if="mail.isTeamMember || mail.isIgnored || (mail.showMultiAccountBadges !== false && mail.otherChatsCount > 1)" class="flex items-center gap-1.5 mt-1.5 flex-wrap">

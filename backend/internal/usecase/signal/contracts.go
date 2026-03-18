@@ -2,6 +2,7 @@ package signal
 
 import (
 	"context"
+	"time"
 
 	"MRG/internal/domain/message"
 )

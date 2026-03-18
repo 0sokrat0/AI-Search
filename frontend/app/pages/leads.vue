@@ -3,7 +3,7 @@ import type { TableColumn } from '@nuxt/ui'
 import { upperFirst } from 'scule'
 import { getPaginationRowModel } from '@tanstack/table-core'
 import { formatDistanceToNow, isValid } from 'date-fns'
-import type { Lead, LeadStatus, SignalItem } from '~/types'
+import type { Lead, LeadStatus } from '~/types'
 
 interface GroupedLead extends Lead {
   chatTitles: string[]
@@ -45,45 +45,6 @@ const bulkCompanyId = ref<string>('')
 const queryClient = useQueryClient()
 const { companies, loading: companiesLoading } = useCompanies()
 const companySelectItems = computed(() => companies.value.map(c => ({ label: c.name, value: c.id })))
-
-const pageTab = ref<'leads' | 'evaluated'>('leads')
-const evalFilter = ref<'all' | 'true' | 'false'>('all')
-
-onMounted(() => {
-  if (route.query.tab === 'evaluated') {
-    pageTab.value = 'evaluated'
-  }
-})
-
-const { data: evaluatedSignals, isPending: isEvalPending } = useAuthQuery<SignalItem[]>(
-  computed(() => ['signals', 'evaluated', evalFilter.value]),
-  () => $fetch<SignalItem[]>('/api/signals/evaluated', {
-    query: {
-      limit: 200,
-      approved: evalFilter.value === 'all' ? undefined : evalFilter.value
-    }
-  })
-)
-
-const evalTableData = computed(() => evaluatedSignals.value ?? [])
-
-async function reEvaluateSignal(id: string, isLead: boolean) {
-  try {
-    await $fetch(`/api/signals/${id}/feedback`, { method: 'POST', body: { is_lead: isLead } })
-    await queryClient.invalidateQueries({ queryKey: ['signals', 'evaluated'] })
-    toast.add({
-      title: isLead ? 'Одобрено' : 'Отклонено',
-      description: 'Оценка сигнала обновлена',
-      color: isLead ? 'success' : 'error'
-    })
-  } catch (e: any) {
-    toast.add({
-      title: 'Ошибка',
-      description: e?.message || 'Не удалось обновить оценку',
-      color: 'error'
-    })
-  }
-}
 const { data: leadsRaw, isPending } = useAuthQuery<Lead[]>(
   computed(() => ['leads', categoryFilter.value]),
   () => $fetch<Lead[]>('/api/leads', {
@@ -556,123 +517,6 @@ function exportCSV() {
       </UDashboardNavbar>
     </template>
     <template #body>
-      <UTabs
-        v-model="pageTab"
-        :items="[
-          { label: 'Лиды', value: 'leads' },
-          { label: 'Ручные оценки', value: 'evaluated' }
-        ]"
-        class="mb-4"
-      />
-
-      <template v-if="pageTab === 'evaluated'">
-        <div class="flex items-center gap-2 mb-4">
-          <UButtonGroup>
-            <UButton
-              label="Все"
-              :color="evalFilter === 'all' ? 'primary' : 'neutral'"
-              :variant="evalFilter === 'all' ? 'solid' : 'outline'"
-              size="sm"
-              @click="evalFilter = 'all'"
-            />
-            <UButton
-              label="Одобренные ✓"
-              :color="evalFilter === 'true' ? 'success' : 'neutral'"
-              :variant="evalFilter === 'true' ? 'solid' : 'outline'"
-              size="sm"
-              @click="evalFilter = 'true'"
-            />
-            <UButton
-              label="Отклонённые ✗"
-              :color="evalFilter === 'false' ? 'error' : 'neutral'"
-              :variant="evalFilter === 'false' ? 'solid' : 'outline'"
-              size="sm"
-              @click="evalFilter = 'false'"
-            />
-          </UButtonGroup>
-        </div>
-
-        <UTable
-          :data="evalTableData"
-          :loading="isEvalPending"
-          :columns="[
-            { accessorKey: 'fromName', header: 'Сигнал' },
-            { accessorKey: 'text', header: 'Текст' },
-            { accessorKey: 'semanticCategory', header: 'Категория' },
-            { accessorKey: 'userApprovedAt', header: 'Дата оценки' },
-            { accessorKey: 'userApproved', header: 'Статус' },
-            { id: 'evalActions', header: '' }
-          ]"
-          :ui="{
-            base: 'table-fixed border-separate border-spacing-0',
-            thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-            tbody: '[&>tr]:last:[&>td]:border-b-0',
-            th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-            td: 'border-b border-default',
-            separator: 'h-0'
-          }"
-        >
-          <template #fromName-cell="{ row }">
-            <div class="flex flex-col min-w-0">
-              <span class="font-medium text-sm truncate">{{ row.original.fromName }}</span>
-              <span class="text-xs text-muted truncate">{{ row.original.chatTitle }}</span>
-            </div>
-          </template>
-
-          <template #text-cell="{ row }">
-            <p class="text-xs text-muted line-clamp-2 max-w-xs break-words">{{ row.original.text }}</p>
-          </template>
-
-          <template #semanticCategory-cell="{ row }">
-            <UBadge
-              :color="categoryColor[String(row.original.semanticCategory || 'leads')] || 'neutral'"
-              variant="subtle"
-              size="xs"
-            >
-              {{ categoryLabel[String(row.original.semanticCategory || 'leads')] || row.original.semanticCategory }}
-            </UBadge>
-          </template>
-
-          <template #userApprovedAt-cell="{ row }">
-            <span class="text-xs text-muted">{{ formatLastSeen(row.original.userApprovedAt ?? undefined) }}</span>
-          </template>
-
-          <template #userApproved-cell="{ row }">
-            <UBadge
-              :color="row.original.userApproved === true ? 'success' : 'error'"
-              variant="subtle"
-              size="xs"
-            >
-              {{ row.original.userApproved === true ? 'Одобрен' : 'Отклонён' }}
-            </UBadge>
-          </template>
-
-          <template #evalActions-cell="{ row }">
-            <div class="flex items-center justify-end gap-1">
-              <UButton
-                icon="i-lucide-check"
-                color="success"
-                variant="ghost"
-                size="sm"
-                square
-                title="Одобрить"
-                @click="reEvaluateSignal(row.original.id, true)"
-              />
-              <UButton
-                icon="i-lucide-x"
-                color="error"
-                variant="ghost"
-                size="sm"
-                square
-                title="Отклонить"
-                @click="reEvaluateSignal(row.original.id, false)"
-              />
-            </div>
-          </template>
-        </UTable>
-      </template>
-
-      <template v-else>
       <div class="flex flex-wrap items-center justify-between gap-1.5">
         <UInput
           v-model="contact"
@@ -849,7 +693,6 @@ function exportCSV() {
           @update:page="(p: number) => table?.tableApi?.setPageIndex(p - 1)"
         />
       </div>
-      </template>
     </template>
   </UDashboardPanel>
 </template>

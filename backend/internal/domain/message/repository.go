@@ -22,16 +22,6 @@ type Repository interface {
 	DeleteOldNoise(ctx context.Context, tenantID string, olderThan time.Duration) (int64, error)
 	GetIngestStats(ctx context.Context, tenantID string, days int) (*IngestStats, error)
 	GetChartData(ctx context.Context, tenantID string, from, to time.Time) ([]ChartDayBucket, error)
-	SetUserApproval(ctx context.Context, tenantID, id string, approved bool) error
-	GetEvaluatedSignals(ctx context.Context, tenantID string, approved *bool, limit, offset int) ([]*Message, error)
-}
-
-// EvaluatedFilter scopes the GetEvaluatedSignals query.
-// Approved == nil means all evaluated signals; true means approved only; false means rejected only.
-type EvaluatedFilter struct {
-	Approved *bool
-	Limit    int
-	Offset   int
 }
 
 type ListFilter struct {

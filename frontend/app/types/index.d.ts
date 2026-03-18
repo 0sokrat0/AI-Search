@@ -148,8 +148,6 @@ export interface SignalItem {
   isDm: boolean
   otherChatsCount: number
   semanticFlags?: string[]
-  userApproved?: boolean | null
-  userApprovedAt?: string | null
 }
 
 export interface ScoreBucket {

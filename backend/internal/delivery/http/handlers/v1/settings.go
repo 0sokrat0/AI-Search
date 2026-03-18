@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -41,8 +42,27 @@ func (h *SettingsHandler) UpdateSettings(c *fiber.Ctx) error {
 }
 
 type cleanupNoiseRequest struct {
-	OlderThanHours string   `json:"older_than_hours"`
+	OlderThanHours any      `json:"older_than_hours"`
 	MessageIDs     []string `json:"message_ids"`
+}
+
+func parseCleanupHours(raw any) (int, error) {
+	switch v := raw.(type) {
+	case string:
+		hours, err := strconv.Atoi(v)
+		if err != nil {
+			return 0, err
+		}
+		return hours, nil
+	case float64:
+		return int(v), nil
+	case int:
+		return v, nil
+	case int64:
+		return int(v), nil
+	default:
+		return 0, fmt.Errorf("invalid older_than_hours")
+	}
 }
 
 func (h *SettingsHandler) CleanupNoise(c *fiber.Ctx) error {
@@ -51,7 +71,7 @@ func (h *SettingsHandler) CleanupNoise(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid json body")
 	}
 
-	hours, err := strconv.Atoi(req.OlderThanHours)
+	hours, err := parseCleanupHours(req.OlderThanHours)
 	if err != nil || hours <= 0 || hours > 24*365 {
 		return fiber.NewError(fiber.StatusBadRequest, "older_than_hours must be between 1 and 8760")
 	}

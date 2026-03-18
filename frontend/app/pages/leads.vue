@@ -25,8 +25,12 @@ const table = useTemplateRef<any>('table')
 const loadMoreTrigger = useTemplateRef<HTMLElement | null>('loadMoreTrigger')
 const router = useRouter()
 const route = useRoute()
+const hydrated = ref(false)
 
 const isDetailRoute = computed(() => Boolean(route.params.id))
+onMounted(() => {
+  hydrated.value = true
+})
 
 const columnFilters = ref([{ id: 'contact', value: '' }])
 const columnVisibility = ref<Record<string, boolean>>({
@@ -426,8 +430,10 @@ const contact = computed({
   }
 })
 
-const selectedLeadRows = computed<Array<{ original: Lead }>>(() => table.value?.tableApi?.getFilteredSelectedRowModel().rows ?? [])
+const selectedLeadRows = computed<Array<{ original: Lead }>>(() => table.value?.tableApi?.getFilteredSelectedRowModel?.()?.rows ?? [])
 const selectedLeadIds = computed<string[]>(() => selectedLeadRows.value.map((row: { original: Lead }) => row.original.id))
+const filteredSelectedCount = computed(() => table.value?.tableApi?.getFilteredSelectedRowModel?.()?.rows?.length ?? 0)
+const filteredRowsCount = computed(() => table.value?.tableApi?.getFilteredRowModel?.()?.rows?.length ?? 0)
 
 async function withSelectedLeads(action: (leadId: string) => Promise<unknown>, successTitle: string) {
   if (!selectedLeadIds.value.length) return
@@ -639,6 +645,7 @@ function exportCSV() {
       </div>
 
       <UTable
+        v-if="hydrated"
         ref="table"
         v-model:column-filters="columnFilters"
         v-model:column-visibility="columnVisibility"
@@ -656,11 +663,15 @@ function exportCSV() {
           separator: 'h-0'
         }"
       />
+      <div v-else class="space-y-2">
+        <USkeleton class="h-12 w-full" />
+        <USkeleton class="h-12 w-full" />
+        <USkeleton class="h-12 w-full" />
+      </div>
 
       <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto">
         <div class="text-sm text-muted">
-          Выбрано {{ table?.tableApi?.getFilteredSelectedRowModel().rows.length || 0 }} из
-          {{ table?.tableApi?.getFilteredRowModel().rows.length || 0 }} лидов.
+          Выбрано {{ filteredSelectedCount }} из {{ filteredRowsCount }} лидов.
         </div>
       </div>
 

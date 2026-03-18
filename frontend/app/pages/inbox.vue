@@ -58,7 +58,18 @@ const queryClient = useQueryClient()
 const route = useRoute()
 const router = useRouter()
 const loadMoreTrigger = useTemplateRef<HTMLElement | null>('loadMoreTrigger')
+const hydrated = ref(false)
 const signalsQueryKey = computed(() => ['signals', selectedTab.value, selectedCategory.value, showArchived.value] as const)
+
+onMounted(() => {
+  hydrated.value = true
+})
+
+function normalizeCleanupHours(value: string | number, fallback = 72): string {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return String(fallback)
+  return String(Math.min(8760, Math.max(1, Math.round(parsed))))
+}
 
 const {
   data: signalsPages,
@@ -325,6 +336,7 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
 async function runSelectedNoiseCleanup() {
   if (!selectedSignalIds.value.length) return
 
+  cleanupNoiseHours.value = normalizeCleanupHours(cleanupNoiseHours.value)
   cleanupNoiseLoading.value = true
   try {
     const result = await $fetch<{ deleted: number, hours: number, message_ids?: number }>('/api/settings/cleanup-noise', {
@@ -484,7 +496,7 @@ async function runSelectedNoiseCleanup() {
         description="Сообщения из Telegram чатов появятся здесь."
       />
     </div>
-    <div v-else class="flex flex-col min-h-0">
+    <div v-else-if="hydrated" class="flex flex-col min-h-0">
       <InboxList
         v-model="selectedSignal"
         v-model:selected-ids="selectedSignalIds"
@@ -500,6 +512,11 @@ async function runSelectedNoiseCleanup() {
           Прокрутите ниже, чтобы загрузить ещё сигналы
         </p>
       </div>
+    </div>
+    <div v-else class="p-4 space-y-3">
+      <USkeleton class="h-16 w-full" />
+      <USkeleton class="h-16 w-full" />
+      <USkeleton class="h-16 w-full" />
     </div>
   </UDashboardPanel>
 

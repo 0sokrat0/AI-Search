@@ -101,7 +101,7 @@ defineShortcuts({
   <div class="overflow-y-auto divide-y divide-default" aria-label="Список сигналов">
     <div
       v-for="(mail, index) in mails"
-      :key="index"
+      :key="mail.signalId"
       :ref="(el) => { mailsRefs[mail.signalId] = el as Element | null }"
     >
       <button

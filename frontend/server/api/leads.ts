@@ -14,7 +14,7 @@ export default eventHandler(async (event) => {
   })
 
   return (response.items ?? []).map((row) => {
-    const createdAt = row.createdAt ?? row.updatedAt ?? new Date().toISOString()
+    const createdAt = row.createdAt ?? row.updatedAt ?? ''
     const semanticDirection = String(row.semanticDirection ?? '').trim()
     const semanticCategory = String(row.semanticCategory ?? (semanticDirection || 'leads'))
     return {

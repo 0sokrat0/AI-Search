@@ -42,6 +42,12 @@ const showMultiAccountBadges = ref(true)
 const showCleanupNoiseModal = ref(false)
 const cleanupNoiseHours = ref('72')
 const cleanupNoiseLoading = ref(false)
+
+function normalizeCleanupHours(value: string | number, fallback = 72): string {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return String(fallback)
+  return String(Math.min(8760, Math.max(1, Math.round(parsed))))
+}
 watch(settings, (next) => {
   if (!next) return
   leadThreshold.value = sliderToNumber(next.lead_threshold, 0.70)
@@ -93,6 +99,7 @@ async function save() {
 }
 
 async function runNoiseCleanup() {
+  cleanupNoiseHours.value = normalizeCleanupHours(cleanupNoiseHours.value)
   cleanupNoiseLoading.value = true
   try {
     const result = await $fetch<{ deleted: number, hours: number }>('/api/settings/cleanup-noise', {
@@ -157,6 +164,9 @@ async function runNoiseCleanup() {
             <p class="text-sm text-muted">
               Удалит шумовые сообщения из Mongo старше указанного периода.
             </p>
+            <p class="text-xs text-muted">
+              Автоочистка на backend срабатывает не чаще одного раза в 30 минут и удаляет шум старше 72 часов.
+            </p>
             <div class="space-y-2">
               <p class="text-sm font-medium">
                 Старше, чем (часов)
@@ -214,7 +224,7 @@ async function runNoiseCleanup() {
               Автоочистка шума
             </p>
             <p class="text-xs text-muted mt-1">
-              Включает периодическую очистку старых шумовых сигналов на backend.
+              Включает периодическую очистку: backend проверяет шум не чаще раза в 30 минут и удаляет записи старше 72 часов.
             </p>
           </div>
           <USwitch v-model="noiseCleanupEnabled" />

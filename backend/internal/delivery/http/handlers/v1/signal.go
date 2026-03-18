@@ -56,8 +56,20 @@ func (h *SignalHandler) GetInbox(c *fiber.Ctx) error {
 
 	limit := c.QueryInt("limit", 50)
 	offset := c.QueryInt("offset", 0)
-	if limit <= 0 || limit > 500 {
+	if limit <= 0 || limit > 50000 {
 		limit = 50
+	}
+
+	var fromDate, toDate *time.Time
+	if from := c.Query("from"); from != "" {
+		if t, err := time.Parse(time.RFC3339, from); err == nil {
+			fromDate = &t
+		}
+	}
+	if to := c.Query("to"); to != "" {
+		if t, err := time.Parse(time.RFC3339, to); err == nil {
+			toDate = &t
+		}
 	}
 
 	out, err := h.app.GetInbox(c.Context(), signal_usecase.InboxQuery{
@@ -67,6 +79,8 @@ func (h *SignalHandler) GetInbox(c *fiber.Ctx) error {
 		Tab:          normalizeInboxTab(c.Query("tab")),
 		Category:     normalizeInboxCategory(c.Query("category")),
 		ShowArchived: c.QueryBool("show_archived", false),
+		FromDate:     fromDate,
+		ToDate:       toDate,
 	})
 	if err != nil {
 		return response.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
@@ -81,7 +95,7 @@ func (h *SignalHandler) GetStats(c *fiber.Ctx) error {
 		return response.ErrorResponse(c, fiber.StatusUnauthorized, "UNAUTHORIZED", "tenant id required")
 	}
 	days := c.QueryInt("days", 7)
-	if days <= 0 || days > 30 {
+	if days <= 0 || days > 365 {
 		days = 7
 	}
 

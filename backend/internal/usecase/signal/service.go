@@ -54,7 +54,12 @@ func (s *Service) BindContact(ctx context.Context, in BindContactInput) error {
 }
 
 func (s *Service) GetInbox(ctx context.Context, q InboxQuery) ([]DTO, error) {
-	f := message.ListFilter{Limit: q.Limit, Offset: q.Offset}
+	f := message.ListFilter{
+		Limit:    q.Limit,
+		Offset:   q.Offset,
+		FromDate: q.FromDate,
+		ToDate:   q.ToDate,
+	}
 	msgs, err := s.messageRepo.List(ctx, q.TenantID, f)
 	if err != nil {
 		return nil, err

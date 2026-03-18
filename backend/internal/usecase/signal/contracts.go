@@ -19,6 +19,8 @@ type InboxQuery struct {
 	Tab          string
 	Category     string
 	ShowArchived bool
+	FromDate     *time.Time
+	ToDate       *time.Time
 }
 
 type DTO struct {

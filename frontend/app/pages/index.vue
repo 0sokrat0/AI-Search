@@ -20,7 +20,7 @@ const statsDays = computed(() => {
   return Math.min(days, 365)
 })
 
-const ingestDays = computed(() => Math.min(30, statsDays.value))
+const ingestDays = computed(() => statsDays.value)
 
 const { data: ingestStats } = await useFetch<IngestStats>('/api/signals/stats', {
   query: computed(() => ({ days: ingestDays.value })),

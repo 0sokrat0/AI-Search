@@ -104,6 +104,11 @@ export interface Lead {
   lastSeenAt: string
 }
 
+export interface CursorPage<T> {
+  items: T[]
+  nextCursor: string
+}
+
 export interface Signal {
   id: string
   chatTitle: string

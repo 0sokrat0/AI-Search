@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/vue-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import type { UseQueryOptions, QueryKey } from '@tanstack/vue-query'
 import type { Ref, ComputedRef } from 'vue'
 
@@ -17,6 +17,38 @@ export function useAuthQuery<TData, TError = Error, TQueryKey extends QueryKey =
     queryFn,
     ...options
   })
+
+  watch(query.error, (err) => {
+    if (!err) return
+    const e = err as Record<string, unknown>
+    const status = e?.statusCode ?? e?.status ?? (e?.data as Record<string, unknown>)?.statusCode
+    if (status === 401) {
+      authStore.clearAuth()
+      router.push('/login')
+    }
+  })
+
+  return query
+}
+
+export function useAuthInfiniteQuery<TData>(
+  queryKey: MaybeRef<QueryKey>,
+  queryFn: (context: { pageParam: any }) => Promise<TData>,
+  options: {
+    initialPageParam: any
+    getNextPageParam: (lastPage: TData) => any
+    refetchInterval?: number
+    staleTime?: number
+  }
+) {
+  const authStore = useAuthStore()
+  const router = useRouter()
+
+  const query = useInfiniteQuery({
+    queryKey: queryKey as any,
+    queryFn: ({ pageParam }) => queryFn({ pageParam }),
+    ...options
+  } as any)
 
   watch(query.error, (err) => {
     if (!err) return

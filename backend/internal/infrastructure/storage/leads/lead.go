@@ -2,7 +2,10 @@ package leads
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"MRG/internal/domain/lead"
@@ -110,15 +113,34 @@ func (r *mongoRepository) FindBySender(ctx context.Context, tenantID string, sen
 }
 
 func (r *mongoRepository) List(ctx context.Context, tenantID string, f lead.ListFilter) ([]*lead.Lead, error) {
+	page, err := r.ListPage(ctx, tenantID, f)
+	if err != nil {
+		return nil, err
+	}
+	return page.Items, nil
+}
+
+func (r *mongoRepository) ListPage(ctx context.Context, tenantID string, f lead.ListFilter) (*lead.ListPage, error) {
 	filter := buildFilter(tenantID, f)
 	limit := int64(50)
 	if f.Limit > 0 {
 		limit = int64(f.Limit)
 	}
+	if cursor, err := decodeLeadCursor(f.Cursor); err == nil && cursor != nil {
+		filter["$or"] = bson.A{
+			bson.M{"created_at": bson.M{"$lt": cursor.CreatedAt}},
+			bson.M{
+				"created_at": cursor.CreatedAt,
+				"_id":        bson.M{"$lt": cursor.ID},
+			},
+		}
+	} else if err != nil {
+		return nil, err
+	}
 	opts := options.Find().
-		SetLimit(limit).
+		SetLimit(limit + 1).
 		SetSkip(int64(f.Offset)).
-		SetSort(bson.D{{Key: "created_at", Value: -1}})
+		SetSort(bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}})
 
 	cur, err := r.col.Find(ctx, filter, opts)
 	if err != nil {
@@ -130,7 +152,52 @@ func (r *mongoRepository) List(ctx context.Context, tenantID string, f lead.List
 
 		}
 	}(cur, ctx)
-	return decodeCursor(ctx, cur)
+	items, err := decodeCursor(ctx, cur)
+	if err != nil {
+		return nil, err
+	}
+	nextCursor := ""
+	if int64(len(items)) > limit {
+		last := items[limit-1]
+		items = items[:limit]
+		nextCursor, err = encodeLeadCursor(last.ID(), last.CreatedAt())
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &lead.ListPage{Items: items, NextCursor: nextCursor}, nil
+}
+
+type leadCursor struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+func encodeLeadCursor(id string, createdAt time.Time) (string, error) {
+	payload, err := json.Marshal(leadCursor{ID: id, CreatedAt: createdAt.UTC()})
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(payload), nil
+}
+
+func decodeLeadCursor(raw string) (*leadCursor, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid lead cursor")
+	}
+	var cursor leadCursor
+	if err := json.Unmarshal(payload, &cursor); err != nil {
+		return nil, fmt.Errorf("invalid lead cursor")
+	}
+	if cursor.ID == "" || cursor.CreatedAt.IsZero() {
+		return nil, fmt.Errorf("invalid lead cursor")
+	}
+	return &cursor, nil
 }
 
 func (r *mongoRepository) Count(ctx context.Context, tenantID string, f lead.ListFilter) (int64, error) {

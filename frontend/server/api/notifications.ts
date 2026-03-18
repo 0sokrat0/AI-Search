@@ -1,11 +1,12 @@
-import type { Notification } from '~/types'
+import type { CursorPage, Notification, SignalItem } from '~/types'
 import { proxyBackendData } from '~~/server/utils/api-proxy'
 
 export default eventHandler(async (event): Promise<Notification[]> => {
-  const rows = await proxyBackendData<any[]>(event, '/api/v1/signals/inbox', {
+  const response = await proxyBackendData<CursorPage<SignalItem>>(event, '/api/v1/signals/inbox', {
     method: 'GET',
     query: { limit: 20, offset: 0 }
   })
+  const rows = response.items ?? []
 
   return rows.map((signal, index) => ({
     id: index + 1,

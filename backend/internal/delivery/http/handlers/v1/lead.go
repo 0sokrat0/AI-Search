@@ -78,6 +78,11 @@ type leadBriefDTO struct {
 	LastSeenAt   string               `json:"lastSeenAt"`
 }
 
+type leadListPageDTO struct {
+	Items      []leadDTO `json:"items"`
+	NextCursor string    `json:"nextCursor"`
+}
+
 func (h *LeadHandler) GetLeads(c *fiber.Ctx) error {
 	tenantID := tenantFromCtx(c)
 	if tenantID == "" {
@@ -87,6 +92,7 @@ func (h *LeadHandler) GetLeads(c *fiber.Ctx) error {
 	f := lead.ListFilter{
 		Limit:         c.QueryInt("limit", 50),
 		Offset:        c.QueryInt("offset", 0),
+		Cursor:        strings.TrimSpace(c.Query("cursor")),
 		QualifiedOnly: c.QueryBool("qualified_only", false),
 	}
 	if s := c.Query("status"); s != "" {
@@ -105,16 +111,19 @@ func (h *LeadHandler) GetLeads(c *fiber.Ctx) error {
 		f.SemanticDirection = &dir
 	}
 
-	leads, err := h.uc.List(c.Context(), tenantID, f)
+	page, err := h.uc.ListPage(c.Context(), tenantID, f)
 	if err != nil {
 		return response.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 	}
 
-	out := make([]leadDTO, 0, len(leads))
-	for _, l := range leads {
+	out := make([]leadDTO, 0, len(page.Items))
+	for _, l := range page.Items {
 		out = append(out, toLeadDTO(l))
 	}
-	return response.OK(c, out)
+	return response.OK(c, leadListPageDTO{
+		Items:      out,
+		NextCursor: page.NextCursor,
+	})
 }
 
 func (h *LeadHandler) GetLeadBrief(c *fiber.Ctx) error {

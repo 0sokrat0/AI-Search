@@ -17,11 +17,17 @@ type InboxQuery struct {
 	TenantID     string
 	Limit        int
 	Offset       int
+	Cursor       string
 	Tab          string
 	Category     string
 	ShowArchived bool
 	FromDate     *time.Time
 	ToDate       *time.Time
+}
+
+type InboxPage struct {
+	Items      []DTO  `json:"items"`
+	NextCursor string `json:"nextCursor"`
 }
 
 type DTO struct {
@@ -80,7 +86,7 @@ type FlagInput struct {
 
 type ServiceAPI interface {
 	BindContact(ctx context.Context, in BindContactInput) error
-	GetInbox(ctx context.Context, q InboxQuery) ([]DTO, error)
+	GetInbox(ctx context.Context, q InboxQuery) (*InboxPage, error)
 	GetStats(ctx context.Context, tenantID string, days int) (*message.IngestStats, error)
 	GetChart(ctx context.Context, tenantID string, from, to time.Time) ([]message.ChartDayBucket, error)
 	FeedbackSignal(ctx context.Context, in FeedbackInput) (FeedbackResult, error)

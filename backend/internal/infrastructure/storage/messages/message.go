@@ -2,8 +2,11 @@ package messages
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"MRG/internal/domain/message"
@@ -113,6 +116,14 @@ func (r *mongoRepository) FindUnclassified(ctx context.Context, tenantID string,
 }
 
 func (r *mongoRepository) List(ctx context.Context, tenantID string, f message.ListFilter) ([]*message.Message, error) {
+	page, err := r.ListPage(ctx, tenantID, f)
+	if err != nil {
+		return nil, err
+	}
+	return page.Items, nil
+}
+
+func (r *mongoRepository) ListPage(ctx context.Context, tenantID string, f message.ListFilter) (*message.ListPage, error) {
 	filter := bson.M{"tenant_id": tenantID}
 	if f.ChatID != nil {
 		filter["chat_id"] = *f.ChatID
@@ -130,15 +141,26 @@ func (r *mongoRepository) List(ctx context.Context, tenantID string, f message.L
 		}
 		filter["created_at"] = dateQ
 	}
+	if cursor, err := decodeMessageCursor(f.Cursor); err == nil && cursor != nil {
+		filter["$or"] = bson.A{
+			bson.M{"created_at": bson.M{"$lt": cursor.CreatedAt}},
+			bson.M{
+				"created_at": cursor.CreatedAt,
+				"_id":        bson.M{"$lt": cursor.ID},
+			},
+		}
+	} else if err != nil {
+		return nil, err
+	}
 
 	limit := int64(50)
 	if f.Limit > 0 {
 		limit = int64(f.Limit)
 	}
 	opts := options.Find().
-		SetLimit(limit).
+		SetLimit(limit + 1).
 		SetSkip(int64(f.Offset)).
-		SetSort(bson.D{{Key: "created_at", Value: -1}})
+		SetSort(bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}})
 
 	cur, err := r.col.Find(ctx, filter, opts)
 	if err != nil {
@@ -154,7 +176,48 @@ func (r *mongoRepository) List(ctx context.Context, tenantID string, f message.L
 	for i, d := range docs {
 		out[i] = fromDoc(d)
 	}
-	return out, nil
+	nextCursor := ""
+	if int64(len(out)) > limit {
+		last := out[limit-1]
+		out = out[:limit]
+		nextCursor, err = encodeMessageCursor(last.ID(), last.CreatedAt())
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &message.ListPage{Items: out, NextCursor: nextCursor}, nil
+}
+
+type messageCursor struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+func encodeMessageCursor(id string, createdAt time.Time) (string, error) {
+	payload, err := json.Marshal(messageCursor{ID: id, CreatedAt: createdAt.UTC()})
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(payload), nil
+}
+
+func decodeMessageCursor(raw string) (*messageCursor, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid message cursor")
+	}
+	var cursor messageCursor
+	if err := json.Unmarshal(payload, &cursor); err != nil {
+		return nil, fmt.Errorf("invalid message cursor")
+	}
+	if cursor.ID == "" || cursor.CreatedAt.IsZero() {
+		return nil, fmt.Errorf("invalid message cursor")
+	}
+	return &cursor, nil
 }
 
 func (r *mongoRepository) CountByTenantToday(ctx context.Context, tenantID string) (int64, error) {

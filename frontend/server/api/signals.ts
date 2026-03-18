@@ -1,4 +1,4 @@
-import type { SignalItem } from '~/types'
+import type { CursorPage, SignalItem } from '~/types'
 import { proxyBackendData } from '~~/server/utils/api-proxy'
 
 export default eventHandler(async (event) => {
@@ -9,8 +9,9 @@ export default eventHandler(async (event) => {
   const category = typeof query.category === 'string' ? query.category : undefined
   const showArchived = query.show_archived
 
-  return await proxyBackendData<SignalItem[]>(event, '/api/v1/signals/inbox', {
+  const response = await proxyBackendData<CursorPage<SignalItem>>(event, '/api/v1/signals/inbox', {
     method: 'GET',
     query: { limit, offset, tab, category, show_archived: showArchived }
   })
+  return response.items ?? []
 })

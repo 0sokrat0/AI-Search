@@ -35,6 +35,10 @@ func (uc *UseCase) List(ctx context.Context, tenantID string, f lead.ListFilter)
 	return uc.leads.List(ctx, tenantID, f)
 }
 
+func (uc *UseCase) ListPage(ctx context.Context, tenantID string, f lead.ListFilter) (*lead.ListPage, error) {
+	return uc.leads.ListPage(ctx, tenantID, f)
+}
+
 func (uc *UseCase) GetByID(ctx context.Context, tenantID, id string) (*lead.Lead, error) {
 	l, err := uc.leads.FindByID(ctx, tenantID, id)
 	if err != nil {

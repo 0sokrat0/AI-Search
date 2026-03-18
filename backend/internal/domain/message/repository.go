@@ -13,6 +13,7 @@ type Repository interface {
 	FindBySender(ctx context.Context, tenantID string, senderID int64, limit, offset int) ([]*Message, error)
 	FindUnclassified(ctx context.Context, tenantID string, limit int) ([]*Message, error)
 	List(ctx context.Context, tenantID string, f ListFilter) ([]*Message, error)
+	ListPage(ctx context.Context, tenantID string, f ListFilter) (*ListPage, error)
 	CountByTenantToday(ctx context.Context, tenantID string) (int64, error)
 	ExistsByTelegramID(ctx context.Context, tenantID string, chatID, messageID int64) (bool, error)
 	SetFlag(ctx context.Context, tenantID, id, field string, value bool) error
@@ -31,6 +32,12 @@ type ListFilter struct {
 	ToDate   *time.Time
 	Limit    int
 	Offset   int
+	Cursor   string
+}
+
+type ListPage struct {
+	Items      []*Message `json:"items"`
+	NextCursor string     `json:"nextCursor"`
 }
 
 type IngestStats struct {

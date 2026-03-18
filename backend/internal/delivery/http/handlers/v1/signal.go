@@ -6,8 +6,8 @@ import (
 
 	"MRG/internal/delivery/http/response"
 	signal_usecase "MRG/internal/usecase/signal"
-	"time"
 	"github.com/gofiber/fiber/v2"
+	"time"
 )
 
 type SignalHandler struct {
@@ -76,6 +76,7 @@ func (h *SignalHandler) GetInbox(c *fiber.Ctx) error {
 		TenantID:     tenantID,
 		Limit:        limit,
 		Offset:       offset,
+		Cursor:       strings.TrimSpace(c.Query("cursor")),
 		Tab:          normalizeInboxTab(c.Query("tab")),
 		Category:     normalizeInboxCategory(c.Query("category")),
 		ShowArchived: c.QueryBool("show_archived", false),

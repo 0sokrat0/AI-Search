@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import { upperFirst } from 'scule'
-import { getPaginationRowModel } from '@tanstack/table-core'
 import { formatDistanceToNow, isValid } from 'date-fns'
-import type { Lead, LeadStatus } from '~/types'
+import { useIntersectionObserver } from '@vueuse/core'
+import type { CursorPage, Lead, LeadStatus } from '~/types'
 
 interface GroupedLead extends Lead {
   chatTitles: string[]
@@ -22,6 +22,7 @@ const UCheckbox = resolveComponent('UCheckbox')
 
 const toast = useToast()
 const table = useTemplateRef<any>('table')
+const loadMoreTrigger = useTemplateRef<HTMLElement | null>('loadMoreTrigger')
 const router = useRouter()
 const route = useRoute()
 
@@ -45,26 +46,39 @@ const bulkCompanyId = ref<string>('')
 const queryClient = useQueryClient()
 const { companies, loading: companiesLoading } = useCompanies()
 const companySelectItems = computed(() => companies.value.map(c => ({ label: c.name, value: c.id })))
-const { data: leadsRaw, isPending } = useAuthQuery<Lead[]>(
+const {
+  data: leadPages,
+  isPending,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage
+} = useAuthInfiniteQuery<CursorPage<Lead>>(
   computed(() => ['leads', categoryFilter.value]),
-  () => $fetch<Lead[]>('/api/leads', {
+  ({ pageParam }) => $fetch<CursorPage<Lead>>('/api/leads/page', {
     query: {
       category: categoryFilter.value === 'all' ? undefined : categoryFilter.value,
-      qualified_only: true
+      qualified_only: true,
+      limit: 50,
+      cursor: pageParam || undefined
     }
   }),
-  { refetchInterval: 60_000, staleTime: 15_000 }
+  {
+    initialPageParam: '',
+    getNextPageParam: (lastPage: CursorPage<Lead>) => lastPage.nextCursor || undefined,
+    refetchInterval: 60_000,
+    staleTime: 15_000
+  }
 )
-const data = computed(() => leadsRaw.value ?? [])
+const data = computed<Lead[]>(() => (leadPages.value?.pages as CursorPage<Lead>[] | undefined)?.flatMap((page: CursorPage<Lead>) => page.items) ?? [])
 
 const scopedLeads = computed(() => {
   return leadScope.value === 'archive'
-    ? data.value.filter(l => l.status === 'converted' || l.status === 'rejected' || l.status === 'false_positive')
-    : data.value.filter(l => l.status !== 'converted' && l.status !== 'rejected' && l.status !== 'false_positive')
+    ? data.value.filter((l: Lead) => l.status === 'converted' || l.status === 'rejected' || l.status === 'false_positive')
+    : data.value.filter((l: Lead) => l.status !== 'converted' && l.status !== 'rejected' && l.status !== 'false_positive')
 })
 
 const groupedScopedLeads = computed<GroupedLead[]>(() => {
-  return scopedLeads.value.map(l => ({
+  return scopedLeads.value.map((l: Lead) => ({
     ...l,
     chatTitles: l.chatTitle ? [l.chatTitle] : [],
     allIds: [l.id]
@@ -390,7 +404,11 @@ watch(() => statusFilter.value, (newVal) => {
 })
 
 watch([categoryFilter, leadScope, statusFilter], () => {
-  pagination.value.pageIndex = 0
+})
+
+useIntersectionObserver(loadMoreTrigger, async ([entry]) => {
+  if (!entry?.isIntersecting || !hasNextPage.value || isFetchingNextPage.value) return
+  await fetchNextPage()
 })
 
 const contact = computed({
@@ -400,11 +418,6 @@ const contact = computed({
   set: (value: string) => {
     table.value?.tableApi?.getColumn('contact')?.setFilterValue(value || undefined)
   }
-})
-
-const pagination = ref({
-  pageIndex: 0,
-  pageSize: 10
 })
 
 const selectedLeadRows = computed<Array<{ original: Lead }>>(() => table.value?.tableApi?.getFilteredSelectedRowModel().rows ?? [])
@@ -644,8 +657,6 @@ function exportCSV() {
         v-model:column-filters="columnFilters"
         v-model:column-visibility="columnVisibility"
         v-model:row-selection="rowSelection"
-        v-model:pagination="pagination"
-        :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
         class="shrink-0"
         :data="groupedScopedLeads"
         :columns="columns"
@@ -665,13 +676,16 @@ function exportCSV() {
           Выбрано {{ table?.tableApi?.getFilteredSelectedRowModel().rows.length || 0 }} из
           {{ table?.tableApi?.getFilteredRowModel().rows.length || 0 }} лидов.
         </div>
+      </div>
 
-        <UPagination
-          :page="(table?.tableApi?.getState().pagination.pageIndex || 0) + 1"
-          :items-per-page="table?.tableApi?.getState().pagination.pageSize"
-          :total="table?.tableApi?.getFilteredRowModel().rows.length"
-          @update:page="(p: number) => table?.tableApi?.setPageIndex(p - 1)"
-        />
+      <div ref="loadMoreTrigger" class="py-4">
+        <div v-if="isFetchingNextPage" class="space-y-2">
+          <USkeleton class="h-12 w-full" />
+          <USkeleton class="h-12 w-full" />
+        </div>
+        <p v-else-if="hasNextPage" class="text-xs text-center text-muted">
+          Прокрутите ниже, чтобы загрузить ещё лиды
+        </p>
       </div>
     </template>
   </UDashboardPanel>

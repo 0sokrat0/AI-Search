@@ -20,6 +20,7 @@ type Repository interface {
 	FindByMessageIDs(ctx context.Context, tenantID string, messageIDs []string) (map[string]MessageLeadRef, error)
 	FindBySender(ctx context.Context, tenantID string, senderID int64, limit, offset int) ([]*Lead, error)
 	List(ctx context.Context, tenantID string, f ListFilter) ([]*Lead, error)
+	ListPage(ctx context.Context, tenantID string, f ListFilter) (*ListPage, error)
 	Count(ctx context.Context, tenantID string, f ListFilter) (int64, error)
 	GetStats(ctx context.Context, tenantID string, days int) (*Stats, error)
 }
@@ -74,4 +75,10 @@ type ListFilter struct {
 	QualifiedOnly     bool
 	Limit             int
 	Offset            int
+	Cursor            string
+}
+
+type ListPage struct {
+	Items      []*Lead `json:"items"`
+	NextCursor string  `json:"nextCursor"`
 }

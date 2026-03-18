@@ -53,17 +53,19 @@ func (s *Service) BindContact(ctx context.Context, in BindContactInput) error {
 	return s.leadUC.SetContactMerchant(ctx, in.TenantID, msg.SenderID(), msg.SenderName(), msg.SenderUsername(), in.MerchantID)
 }
 
-func (s *Service) GetInbox(ctx context.Context, q InboxQuery) ([]DTO, error) {
+func (s *Service) GetInbox(ctx context.Context, q InboxQuery) (*InboxPage, error) {
 	f := message.ListFilter{
 		Limit:    q.Limit,
 		Offset:   q.Offset,
+		Cursor:   q.Cursor,
 		FromDate: q.FromDate,
 		ToDate:   q.ToDate,
 	}
-	msgs, err := s.messageRepo.List(ctx, q.TenantID, f)
+	page, err := s.messageRepo.ListPage(ctx, q.TenantID, f)
 	if err != nil {
 		return nil, err
 	}
+	msgs := page.Items
 
 	msgIDs := make([]string, len(msgs))
 	for i, m := range msgs {
@@ -103,7 +105,10 @@ func (s *Service) GetInbox(ctx context.Context, q InboxQuery) ([]DTO, error) {
 		}
 		out = append(out, dto)
 	}
-	return out, nil
+	return &InboxPage{
+		Items:      out,
+		NextCursor: page.NextCursor,
+	}, nil
 }
 
 func (s *Service) GetStats(ctx context.Context, tenantID string, days int) (*message.IngestStats, error) {

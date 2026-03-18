@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { breakpointsTailwind } from '@vueuse/core'
-import type { Mail, SignalItem } from '~/types'
+import { breakpointsTailwind, useIntersectionObserver } from '@vueuse/core'
+import type { CursorPage, Mail, SignalItem } from '~/types'
 
 definePageMeta({
   middleware: 'auth'
@@ -54,22 +54,35 @@ const toast = useToast()
 const queryClient = useQueryClient()
 const route = useRoute()
 const router = useRouter()
+const loadMoreTrigger = useTemplateRef<HTMLElement | null>('loadMoreTrigger')
 const signalsQueryKey = computed(() => ['signals', selectedTab.value, selectedCategory.value, showArchived.value] as const)
 
-const { data: signalsRaw, isPending } = useAuthQuery<SignalItem[]>(
+const {
+  data: signalsPages,
+  isPending,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage
+} = useAuthInfiniteQuery<CursorPage<SignalItem>>(
   signalsQueryKey,
-  () => $fetch<SignalItem[]>('/api/signals', {
+  ({ pageParam }) => $fetch<CursorPage<SignalItem>>('/api/signals/page', {
     query: {
-      limit: 200,
+      limit: 50,
+      cursor: pageParam || undefined,
       tab: selectedTab.value,
       category: selectedCategory.value,
       show_archived: showArchived.value
     }
   }),
-  { refetchInterval: 30_000, staleTime: 10_000 }
+  {
+    initialPageParam: '',
+    getNextPageParam: (lastPage: CursorPage<SignalItem>) => lastPage.nextCursor || undefined,
+    refetchInterval: 30_000,
+    staleTime: 10_000
+  }
 )
 
-const signals = computed(() => signalsRaw.value ?? [])
+const signals = computed<SignalItem[]>(() => (signalsPages.value?.pages as CursorPage<SignalItem>[] | undefined)?.flatMap((page: CursorPage<SignalItem>) => page.items) ?? [])
 const { data: appSettings } = await useFetch('/api/settings', {
   default: () => ({ show_multi_account_badges: 'true' })
 })
@@ -102,7 +115,7 @@ function normalizeMailCategory(value?: string | null): Mail['category'] {
 }
 
 const allMailboxSignals = computed<Mail[]>(() => {
-  return signals.value.map((signal, index) => ({
+  return signals.value.map((signal: SignalItem, index: number) => ({
     id: index + 1,
     signalId: signal.id,
     unread: false,
@@ -241,6 +254,11 @@ watch([selectedTab, selectedCategory], ([tab, category]) => {
   router.replace({ query: nextQuery })
 })
 
+useIntersectionObserver(loadMoreTrigger, async ([entry]) => {
+  if (!entry?.isIntersecting || !hasNextPage.value || isFetchingNextPage.value) return
+  await fetchNextPage()
+})
+
 function onFlagged(field: string, value: boolean) {
   if (!selectedSignal.value || !signals.value) return
 
@@ -251,7 +269,7 @@ function onFlagged(field: string, value: boolean) {
     selectedSignal.value = mailboxSignals.value[currentIndex + 1] ?? mailboxSignals.value[currentIndex - 1] ?? null
   }
 
-  const signal = signals.value.find(s => s.id === signalId)
+  const signal = signals.value.find((s: SignalItem) => s.id === signalId)
   if (!signal) return
 
   if (field === 'is_ignored') {
@@ -423,13 +441,23 @@ async function runBulkAction(action: 'archive' | 'team' | 'category') {
         description="Сообщения из Telegram чатов появятся здесь."
       />
     </div>
-    <InboxList
-      v-else
-      v-model="selectedSignal"
-      v-model:selected-ids="selectedSignalIds"
-      :mails="mailboxSignals"
-      class="pb-4"
-    />
+    <div v-else class="flex flex-col min-h-0">
+      <InboxList
+        v-model="selectedSignal"
+        v-model:selected-ids="selectedSignalIds"
+        :mails="mailboxSignals"
+        class="pb-4"
+      />
+      <div ref="loadMoreTrigger" class="px-4 py-4">
+        <div v-if="isFetchingNextPage" class="space-y-2">
+          <USkeleton class="h-14 w-full" />
+          <USkeleton class="h-14 w-full" />
+        </div>
+        <p v-else-if="hasNextPage" class="text-xs text-center text-muted">
+          Прокрутите ниже, чтобы загрузить ещё сигналы
+        </p>
+      </div>
+    </div>
   </UDashboardPanel>
 
   <InboxMail

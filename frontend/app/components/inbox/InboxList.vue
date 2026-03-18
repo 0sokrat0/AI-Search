@@ -6,7 +6,12 @@ const props = defineProps<{
   mails: Mail[]
 }>()
 
+const emit = defineEmits<{
+  bottomChange: [value: boolean]
+}>()
+
 const mailsRefs = ref<Record<string, Element | null>>({})
+const scrollContainer = ref<HTMLElement | null>(null)
 const selectedIds = defineModel<string[]>('selectedIds', { default: () => [] })
 
 const selectedMail = defineModel<Mail | null>()
@@ -94,6 +99,17 @@ function toggleSelected(signalId: string, checked: boolean | 'indeterminate') {
   selectedIds.value = selectedIds.value.filter(id => id !== signalId)
 }
 
+function reportBottomState() {
+  const element = scrollContainer.value
+  if (!element) {
+    emit('bottomChange', false)
+    return
+  }
+
+  const remaining = element.scrollHeight - element.scrollTop - element.clientHeight
+  emit('bottomChange', remaining <= 24)
+}
+
 watch(selectedMail, () => {
   if (!selectedMail.value) {
     return
@@ -102,6 +118,11 @@ watch(selectedMail, () => {
   if (ref) {
     ref.scrollIntoView({ block: 'nearest' })
   }
+})
+
+watch(() => props.mails.length, async () => {
+  await nextTick()
+  reportBottomState()
 })
 
 defineShortcuts({
@@ -127,7 +148,12 @@ defineShortcuts({
 </script>
 
 <template>
-  <div class="overflow-y-auto divide-y divide-default" aria-label="Список сигналов">
+  <div
+    ref="scrollContainer"
+    class="overflow-y-auto divide-y divide-default"
+    aria-label="Список сигналов"
+    @scroll.passive="reportBottomState"
+  >
     <div
       v-for="(mail, index) in mails"
       :key="mail.signalId"

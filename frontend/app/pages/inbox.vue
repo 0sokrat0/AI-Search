@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { breakpointsTailwind, useIntersectionObserver } from '@vueuse/core'
+import { breakpointsTailwind } from '@vueuse/core'
 import type { CursorPage, Mail, SignalItem } from '~/types'
 
 definePageMeta({
@@ -43,8 +43,8 @@ const toast = useToast()
 const queryClient = useQueryClient()
 const route = useRoute()
 const router = useRouter()
-const loadMoreTrigger = useTemplateRef<HTMLElement | null>('loadMoreTrigger')
 const hydrated = ref(false)
+const showLoadMoreSignalsButton = ref(false)
 const signalsQueryKey = computed(() => ['signals', selectedCategory.value, showArchived.value] as const)
 
 onMounted(() => {
@@ -200,6 +200,9 @@ watch(mailboxSignals, () => {
     selectedSignal.value = null
   }
   selectedSignalIds.value = selectedSignalIds.value.filter(id => mailboxSignals.value.some(s => s.signalId === id))
+  if (!hasNextPage.value) {
+    showLoadMoreSignalsButton.value = false
+  }
 })
 
 watch(
@@ -219,6 +222,7 @@ watch(
 )
 
 watch([selectedCategory], ([category]) => {
+  showLoadMoreSignalsButton.value = false
   const nextQuery = {
     ...route.query,
     category,
@@ -232,9 +236,8 @@ watch([selectedCategory], ([category]) => {
   router.replace({ query: nextQuery })
 })
 
-useIntersectionObserver(loadMoreTrigger, async ([entry]) => {
-  if (!entry?.isIntersecting || !hasNextPage.value || isFetchingNextPage.value) return
-  await fetchNextPage()
+watch(selectedChat, () => {
+  showLoadMoreSignalsButton.value = false
 })
 
 function onFlagged(field: string, value: boolean) {
@@ -427,13 +430,14 @@ async function runSelectedNoiseCleanup() {
         v-model:selected-ids="selectedSignalIds"
         :mails="mailboxSignals"
         class="pb-4"
+        @bottom-change="showLoadMoreSignalsButton = $event && hasNextPage"
       />
-      <div ref="loadMoreTrigger" class="px-4 py-4">
+      <div class="px-4 py-4">
         <div v-if="isFetchingNextPage" class="space-y-2">
           <USkeleton class="h-14 w-full" />
           <USkeleton class="h-14 w-full" />
         </div>
-        <div v-else-if="hasNextPage" class="space-y-2">
+        <div v-else-if="hasNextPage && showLoadMoreSignalsButton" class="space-y-2">
           <p class="text-xs text-center text-muted">
             Загружено {{ loadedSignalsCount }} сигналов. Это не весь список.
           </p>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, format, parseISO, startOfDay, startOfMonth, startOfWeek } from 'date-fns'
 import { VisXYContainer, VisLine, VisAxis, VisCrosshair, VisTooltip } from '@unovis/vue'
-import type { Period, Range, LeadStats } from '~/types'
+import type { Period, Range, ChartDayBucket } from '~/types'
 
 const cardRef = useTemplateRef<HTMLElement | null>('cardRef')
 
@@ -21,30 +21,13 @@ const { width } = useElementSize(cardRef)
 
 const data = ref<DataRecord[]>([])
 
-const statsDays = computed(() => {
-  const ms = props.range.end.getTime() - props.range.start.getTime()
-  return Math.max(1, Math.ceil(ms / 86_400_000) + 1)
-})
-
-const { data: stats } = await useFetch<LeadStats>('/api/leads/stats', {
-  query: computed(() => ({ days: statsDays.value })),
-  default: (): LeadStats => ({
-    period: '30d',
-    totalDetected: 0,
-    approved: 0,
-    rejected: 0,
-    pending: 0,
-    aiQualified: 0,
-    manualApproved: 0,
-    avgScore: 0,
-    avgScoreApproved: 0,
-    avgScoreRejected: 0,
-    buckets: [],
-    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
-    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
-    series: []
-  }),
-  watch: [statsDays]
+const { data: chartBuckets } = await useFetch<ChartDayBucket[]>('/api/signals/chart', {
+  query: computed(() => ({
+    from: props.range.start.toISOString(),
+    to: props.range.end.toISOString()
+  })),
+  default: () => [],
+  watch: [() => props.range]
 })
 
 function toBucketKey(date: Date): string {
@@ -53,7 +36,7 @@ function toBucketKey(date: Date): string {
   return format(startOfMonth(date), 'yyyy-MM-dd')
 }
 
-watch([() => props.period, () => props.range, stats], () => {
+watch([() => props.period, () => props.range, chartBuckets], () => {
   const dates = ({
     daily: eachDayOfInterval,
     weekly: eachWeekOfInterval,
@@ -61,7 +44,7 @@ watch([() => props.period, () => props.range, stats], () => {
   } as Record<Period, typeof eachDayOfInterval>)[props.period](props.range)
 
   const buckets = new Map<string, { traders: number, merchants: number, psOffers: number }>()
-  for (const b of stats.value?.series || []) {
+  for (const b of chartBuckets.value || []) {
     const dt = parseISO(b.day)
     const key = toBucketKey(dt)
     const existing = buckets.get(key) ?? { traders: 0, merchants: 0, psOffers: 0 }
@@ -89,7 +72,7 @@ const yTraders = (d: DataRecord) => d.traders
 const yMerchants = (d: DataRecord) => d.merchants
 const yPSOffers = (d: DataRecord) => d.psOffers
 
-const total = computed(() => data.value.reduce((acc: number, d) => acc + d.traders + d.merchants + d.psOffers, 0))
+const total = computed(() => (chartBuckets.value || []).reduce((acc: number, d) => acc + d.total, 0))
 const tradersTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.traders, 0))
 const merchantsTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.merchants, 0))
 const psOffersTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.psOffers, 0))

@@ -102,10 +102,6 @@ const candidateRate = computed(() => {
               <span class="text-muted">Активные чаты / отправители</span>
               <span class="font-semibold">{{ ingestStats?.uniqueChats ?? 0 }} / {{ ingestStats?.uniqueSenders ?? 0 }}</span>
             </div>
-            <div class="flex justify-between items-center">
-              <span class="text-muted">Средний поток</span>
-              <span class="font-semibold">{{ (ingestStats?.avgPerHour ?? 0).toFixed(1) }} / час</span>
-            </div>
             <UButton to="/inbox" variant="ghost" color="neutral" size="xs" icon="i-lucide-radar" label="Открыть входящие сигналы" class="w-full mt-1" />
           </div>
         </UCard>

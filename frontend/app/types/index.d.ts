@@ -283,6 +283,9 @@ export interface ChartDayBucket {
   day: string
   total: number
   target: number
+  traders: number
+  merchants: number
+  psOffers: number
 }
 
 export type Period = 'daily' | 'weekly' | 'monthly'

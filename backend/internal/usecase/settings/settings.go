@@ -3,16 +3,19 @@ package settings
 import (
 	"context"
 	"strconv"
+	"time"
 
+	"MRG/internal/domain/message"
 	"MRG/internal/infrastructure/storage/settings"
 )
 
 type UseCase struct {
-	store *settings.Store
+	store    *settings.Store
+	messages message.Repository
 }
 
-func New(store *settings.Store) *UseCase {
-	return &UseCase{store: store}
+func New(store *settings.Store, messages message.Repository) *UseCase {
+	return &UseCase{store: store, messages: messages}
 }
 
 func (uc *UseCase) GetAll(ctx context.Context) (map[string]string, error) {
@@ -48,4 +51,11 @@ func (uc *UseCase) Update(ctx context.Context, patch map[string]string) error {
 		}
 	}
 	return uc.store.SetAll(ctx, patch)
+}
+
+func (uc *UseCase) CleanupNoise(ctx context.Context, tenantID string, olderThan time.Duration) (int64, error) {
+	if uc.messages == nil {
+		return 0, nil
+	}
+	return uc.messages.DeleteOldNoise(ctx, tenantID, olderThan)
 }

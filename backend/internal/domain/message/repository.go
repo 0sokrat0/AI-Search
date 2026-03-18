@@ -61,7 +61,10 @@ type ChatBucket struct {
 }
 
 type ChartDayBucket struct {
-	Day    string `json:"day"`
-	Total  int64  `json:"total"`
-	Target int64  `json:"target"`
+	Day       string `json:"day"`
+	Total     int64  `json:"total"`
+	Target    int64  `json:"target"`
+	Traders   int64  `json:"traders"`
+	Merchants int64  `json:"merchants"`
+	PSOffers  int64  `json:"psOffers"`
 }

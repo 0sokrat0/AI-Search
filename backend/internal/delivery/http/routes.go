@@ -77,6 +77,7 @@ func SetupRoutes(
 	settingsGroup := g.Group("/settings", middleware.AuthRequired(cfg), middleware.PermissionRequired(user.PermissionManageUsers, userRepo))
 	settingsGroup.Get("/", settingsHandler.GetSettings)
 	settingsGroup.Put("/", settingsHandler.UpdateSettings)
+	settingsGroup.Post("/cleanup-noise", settingsHandler.CleanupNoise)
 	if knowledgeHandler != nil {
 		settingsGroup.Post("/knowledge/import", knowledgeHandler.ImportCSV)
 	}

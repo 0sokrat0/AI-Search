@@ -1,6 +1,9 @@
 package v1
 
 import (
+	"strconv"
+	"time"
+
 	settings_usecase "MRG/internal/usecase/settings"
 
 	"github.com/gofiber/fiber/v2"
@@ -35,4 +38,30 @@ func (h *SettingsHandler) UpdateSettings(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(kv)
+}
+
+type cleanupNoiseRequest struct {
+	OlderThanHours string `json:"older_than_hours"`
+}
+
+func (h *SettingsHandler) CleanupNoise(c *fiber.Ctx) error {
+	var req cleanupNoiseRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid json body")
+	}
+
+	hours, err := strconv.Atoi(req.OlderThanHours)
+	if err != nil || hours <= 0 || hours > 24*365 {
+		return fiber.NewError(fiber.StatusBadRequest, "older_than_hours must be between 1 and 8760")
+	}
+
+	deleted, err := h.uc.CleanupNoise(c.Context(), tenantFromCtx(c), time.Duration(hours)*time.Hour)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"deleted": deleted,
+		"hours":   hours,
+	})
 }

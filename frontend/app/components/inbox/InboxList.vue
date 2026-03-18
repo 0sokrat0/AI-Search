@@ -67,6 +67,19 @@ function bestBusinessMatch(mail: Mail): { label: string, percent: number } | nul
   }
 }
 
+function currentCategoryShortLabel(mail: Mail): string | null {
+  switch (String(mail.category || '').toLowerCase()) {
+    case 'traders':
+      return 'Трейдеры'
+    case 'merchants':
+      return 'Мерчанты'
+    case 'ps_offers':
+      return 'ПС'
+    default:
+      return null
+  }
+}
+
 function isSelected(signalId: string): boolean {
   return selectedIds.value.includes(signalId)
 }
@@ -174,7 +187,9 @@ defineShortcuts({
           />
           <UBadge
             v-if="bestBusinessMatch(mail)"
-            :label="`${bestBusinessMatch(mail)?.label} ${bestBusinessMatch(mail)?.percent}%`"
+            :label="bestBusinessMatch(mail)?.label === currentCategoryShortLabel(mail)
+              ? `${bestBusinessMatch(mail)?.percent}%`
+              : `${bestBusinessMatch(mail)?.label} ${bestBusinessMatch(mail)?.percent}%`"
             color="neutral"
             variant="soft"
             size="xs"

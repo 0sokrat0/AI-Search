@@ -536,7 +536,7 @@ function formatDateSafe(value?: string | null): string {
     <div class="flex-1 p-4 sm:p-6 overflow-y-auto">
       <div v-if="bestBusinessMatch" class="mb-4 rounded-xl border border-default bg-elevated/30 p-4">
         <div class="flex items-center justify-between gap-3 text-sm">
-          <span class="font-medium text-highlighted">{{ bestBusinessMatch.label }}</span>
+          <span class="font-medium text-highlighted">Уверенность по категории</span>
           <span class="font-mono text-sm">{{ bestBusinessMatch.percent }}%</span>
         </div>
         <div class="mt-2 h-2 overflow-hidden rounded-full bg-muted">

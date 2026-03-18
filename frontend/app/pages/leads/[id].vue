@@ -545,15 +545,6 @@ watch(lead, (value) => {
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-                  <UBadge
-                    v-if="signal.isLead"
-                    color="success"
-                    variant="soft"
-                    size="xs"
-                    icon="i-lucide-target"
-                  >
-                    лид
-                  </UBadge>
                   <template v-if="signal.semanticCategory && signal.semanticCategory !== 'stream'">
                     <UBadge
                       :color="categoryColor[String(signal.semanticCategory)] || 'neutral'"

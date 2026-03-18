@@ -535,29 +535,6 @@ function exportCSV() {
             class="min-w-32"
           />
 
-          <UButtonGroup size="sm">
-            <UButton
-              :variant="statusFilter === 'all' ? 'solid' : 'ghost'"
-              label="Все сигналы"
-              color="neutral"
-              @click="statusFilter = 'all'"
-            />
-            <UButton
-              :variant="statusFilter === 'confirmed' ? 'solid' : 'ghost'"
-              label="Подтвержденные"
-              color="success"
-              icon="i-lucide-check-check"
-              @click="statusFilter = 'confirmed'"
-            />
-            <UButton
-              :variant="statusFilter === 'false_positive' ? 'solid' : 'ghost'"
-              label="Забракованные"
-              color="error"
-              icon="i-lucide-x-circle"
-              @click="statusFilter = 'false_positive'"
-            />
-          </UButtonGroup>
-
           <USelect
             v-model="categoryFilter"
             :items="[

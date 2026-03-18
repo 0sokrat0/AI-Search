@@ -21,6 +21,7 @@ type Repository interface {
 	CountSenderInChats(ctx context.Context, tenantID string, senderIDs []int64) (map[int64]int, error)
 	DeleteOldNoise(ctx context.Context, tenantID string, olderThan time.Duration) (int64, error)
 	GetIngestStats(ctx context.Context, tenantID string, days int) (*IngestStats, error)
+	GetChartData(ctx context.Context, tenantID string, from, to time.Time) ([]ChartDayBucket, error)
 }
 
 type ListFilter struct {
@@ -57,4 +58,10 @@ type ChatBucket struct {
 	ChatID    int64  `json:"chatId"`
 	ChatTitle string `json:"chatTitle"`
 	Count     int64  `json:"count"`
+}
+
+type ChartDayBucket struct {
+	Day    string `json:"day"`
+	Total  int64  `json:"total"`
+	Target int64  `json:"target"`
 }

@@ -66,6 +66,7 @@ func SetupRoutes(
 	if signalHandler != nil {
 		signals := g.Group("/signals", middleware.AuthRequired(cfg), middleware.PermissionRequired(user.PermissionViewLeads, userRepo))
 		signals.Get("/stats", signalHandler.GetStats)
+		signals.Get("/chart", signalHandler.GetChart)
 		signals.Get("/inbox", signalHandler.GetInbox)
 		signals.Get("/sender/:senderID", signalHandler.GetSenderHistory)
 		signals.Post("/:id/feedback", signalHandler.FeedbackSignal)

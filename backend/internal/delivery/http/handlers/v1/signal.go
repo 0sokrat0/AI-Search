@@ -89,6 +89,34 @@ func (h *SignalHandler) GetInbox(c *fiber.Ctx) error {
 	return response.OK(c, out)
 }
 
+func (h *SignalHandler) GetChart(c *fiber.Ctx) error {
+	tenantID := tenantFromCtx(c)
+	if tenantID == "" {
+		return response.ErrorResponse(c, fiber.StatusUnauthorized, "UNAUTHORIZED", "tenant id required")
+	}
+
+	now := time.Now().UTC()
+	from := now.AddDate(0, 0, -30)
+	to := now
+
+	if f := c.Query("from"); f != "" {
+		if t, err := time.Parse(time.RFC3339, f); err == nil {
+			from = t
+		}
+	}
+	if t := c.Query("to"); t != "" {
+		if parsed, err := time.Parse(time.RFC3339, t); err == nil {
+			to = parsed
+		}
+	}
+
+	buckets, err := h.app.GetChart(c.Context(), tenantID, from, to)
+	if err != nil {
+		return response.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+	}
+	return response.OK(c, buckets)
+}
+
 func (h *SignalHandler) GetStats(c *fiber.Ctx) error {
 	tenantID := tenantFromCtx(c)
 	if tenantID == "" {

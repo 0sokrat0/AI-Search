@@ -82,6 +82,7 @@ type ServiceAPI interface {
 	BindContact(ctx context.Context, in BindContactInput) error
 	GetInbox(ctx context.Context, q InboxQuery) ([]DTO, error)
 	GetStats(ctx context.Context, tenantID string, days int) (*message.IngestStats, error)
+	GetChart(ctx context.Context, tenantID string, from, to time.Time) ([]message.ChartDayBucket, error)
 	FeedbackSignal(ctx context.Context, in FeedbackInput) (FeedbackResult, error)
 	FlagSignal(ctx context.Context, in FlagInput) error
 	GetSenderHistory(ctx context.Context, tenantID, senderID string, limit int) ([]DTO, error)

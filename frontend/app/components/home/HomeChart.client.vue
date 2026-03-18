@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, format, isAfter, isBefore, startOfDay, startOfMonth, startOfWeek } from 'date-fns'
+import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, format, parseISO, startOfDay, startOfMonth, startOfWeek } from 'date-fns'
 import { VisXYContainer, VisLine, VisAxis, VisArea, VisCrosshair, VisTooltip } from '@unovis/vue'
-import type { Period, Range, SignalItem } from '~/types'
+import type { Period, Range, ChartDayBucket } from '~/types'
 
 const cardRef = useTemplateRef<HTMLElement | null>('cardRef')
 
@@ -20,14 +20,13 @@ const { width } = useElementSize(cardRef)
 
 const data = ref<DataRecord[]>([])
 
-const { data: signals } = await useFetch<SignalItem[]>('/api/signals', {
+const { data: chartBuckets } = await useFetch<ChartDayBucket[]>('/api/signals/chart', {
   query: computed(() => ({
-    limit: 20000,
     from: props.range.start.toISOString(),
     to: props.range.end.toISOString()
   })),
   default: () => [],
-  watch: [() => props.period, () => props.range]
+  watch: [() => props.range]
 })
 
 function toBucketKey(date: Date): string {
@@ -36,33 +35,25 @@ function toBucketKey(date: Date): string {
   return format(startOfMonth(date), 'yyyy-MM-dd')
 }
 
-watch([() => props.period, () => props.range, signals], () => {
+watch([() => props.period, () => props.range, chartBuckets], () => {
   const dates = ({
     daily: eachDayOfInterval,
     weekly: eachWeekOfInterval,
     monthly: eachMonthOfInterval
   } as Record<Period, typeof eachDayOfInterval>)[props.period](props.range)
 
-  const buckets = new Map<string, number>()
-  const targetBuckets = new Map<string, number>()
-  for (const s of signals.value || []) {
-    const dt = new Date(s.date)
-    if (Number.isNaN(dt.getTime())) continue
-    if (isBefore(dt, props.range.start) || isAfter(dt, props.range.end)) continue
-
+  const buckets = new Map<string, { total: number, target: number }>()
+  for (const b of chartBuckets.value || []) {
+    const dt = parseISO(b.day)
     const key = toBucketKey(dt)
-    buckets.set(key, (buckets.get(key) || 0) + 1)
-    const category = String(s.semanticCategory || '').toLowerCase()
-    // Квалифицируем целевые сигналы (включая новые типы и ручной апрув)
-    const isTarget = category === 'traders' || category === 'merchants' || category === 'ps_offers' || Boolean(s.leadId)
-    if (isTarget) {
-      targetBuckets.set(key, (targetBuckets.get(key) || 0) + 1)
-    }
+    const existing = buckets.get(key) ?? { total: 0, target: 0 }
+    buckets.set(key, { total: existing.total + b.total, target: existing.target + b.target })
   }
 
   data.value = dates.map((date) => {
     const key = toBucketKey(date)
-    return { date, total: buckets.get(key) || 0, target: targetBuckets.get(key) || 0 }
+    const b = buckets.get(key)
+    return { date, total: b?.total ?? 0, target: b?.target ?? 0 }
   })
 }, { immediate: true })
 

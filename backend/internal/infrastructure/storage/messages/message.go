@@ -451,6 +451,52 @@ func (r *mongoRepository) CountSenderInChats(ctx context.Context, tenantID strin
 	return result, nil
 }
 
+func (r *mongoRepository) GetChartData(ctx context.Context, tenantID string, from, to time.Time) ([]message.ChartDayBucket, error) {
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{
+			"tenant_id":  tenantID,
+			"is_ignored": false,
+			"created_at": bson.M{"$gte": from, "$lte": to},
+		}}},
+		{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: bson.M{
+				"$dateToString": bson.M{"format": "%Y-%m-%d", "date": "$created_at"},
+			}},
+			{Key: "total", Value: bson.M{"$sum": 1}},
+			{Key: "target", Value: bson.M{"$sum": bson.M{
+				"$cond": bson.A{
+					bson.M{"$eq": bson.A{"$classified_as_lead", true}},
+					1, 0,
+				},
+			}}},
+		}}},
+		{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+	}
+
+	cur, err := r.col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	buckets := make([]message.ChartDayBucket, 0, 30)
+	for cur.Next(ctx) {
+		var row struct {
+			ID     string `bson:"_id"`
+			Total  int64  `bson:"total"`
+			Target int64  `bson:"target"`
+		}
+		if err := cur.Decode(&row); err == nil {
+			buckets = append(buckets, message.ChartDayBucket{
+				Day:    row.ID,
+				Total:  row.Total,
+				Target: row.Target,
+			})
+		}
+	}
+	return buckets, nil
+}
+
 func toDoc(m *message.Message) bson.M {
 	return bson.M{
 		"tenant_id":          m.TenantID(),

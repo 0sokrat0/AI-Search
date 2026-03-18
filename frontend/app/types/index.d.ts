@@ -255,6 +255,12 @@ export interface Notification {
   date: string
 }
 
+export interface ChartDayBucket {
+  day: string
+  total: number
+  target: number
+}
+
 export type Period = 'daily' | 'weekly' | 'monthly'
 
 export interface Range {

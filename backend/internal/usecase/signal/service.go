@@ -110,6 +110,10 @@ func (s *Service) GetStats(ctx context.Context, tenantID string, days int) (*mes
 	return s.messageRepo.GetIngestStats(ctx, tenantID, days)
 }
 
+func (s *Service) GetChart(ctx context.Context, tenantID string, from, to time.Time) ([]message.ChartDayBucket, error) {
+	return s.messageRepo.GetChartData(ctx, tenantID, from, to)
+}
+
 type sieveMetaTeacher interface {
 	AddReferencePointWithMeta(ctx context.Context, text string, isLead bool, direction string) error
 }

@@ -255,6 +255,10 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 	stats := &lead.Stats{Period: fmt.Sprintf("%dd", days)}
 	var totalScore float64
 	var totalCount int64
+	var approvedScoreSum float64
+	var approvedCount int64
+	var rejectedScoreSum float64
+	var rejectedCount int64
 	for _, row := range frows {
 		stats.TotalDetected += row.Count
 		totalScore += row.AvgScore * float64(row.Count)
@@ -269,13 +273,8 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 
 		if row.ID.Category == "noise" || row.ID.Category == "spam" {
 			stats.Rejected += row.Count
-			// We can use the average score of noise for AvgScoreRejected
-			if stats.AvgScoreRejected == 0 {
-				stats.AvgScoreRejected = row.AvgScore
-			} else {
-				// simple weighted average for rejected
-				stats.AvgScoreRejected = (stats.AvgScoreRejected*float64(stats.Rejected-row.Count) + row.AvgScore*float64(row.Count)) / float64(stats.Rejected)
-			}
+			rejectedScoreSum += row.AvgScore * float64(row.Count)
+			rejectedCount += row.Count
 			continue
 		}
 
@@ -283,22 +282,31 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 			stats.Pending += row.Count
 		} else if *row.ID.Feedback {
 			stats.Approved += row.Count
-			stats.AvgScoreApproved = row.AvgScore
+			approvedScoreSum += row.AvgScore * float64(row.Count)
+			approvedCount += row.Count
 			accumulateCategoryDistribution(&stats.ApprovedByCategory, row.ID.Category, row.Count)
 		} else {
 			stats.Rejected += row.Count
-			stats.AvgScoreRejected = row.AvgScore
+			rejectedScoreSum += row.AvgScore * float64(row.Count)
+			rejectedCount += row.Count
 			accumulateCategoryDistribution(&stats.RejectedByCategory, row.ID.Category, row.Count)
 		}
 	}
 	if totalCount > 0 {
 		stats.AvgScore = totalScore / float64(totalCount)
 	}
+	if approvedCount > 0 {
+		stats.AvgScoreApproved = approvedScoreSum / float64(approvedCount)
+	}
+	if rejectedCount > 0 {
+		stats.AvgScoreRejected = rejectedScoreSum / float64(rejectedCount)
+	}
 
 	bucketPipeline := mongo.Pipeline{
 		{{Key: "$match", Value: bson.M{
 			"tenant_id":  tenantID,
 			"created_at": bson.M{"$gte": from},
+			"status":     bson.M{"$ne": string(lead.StatusControversial)},
 			"score": bson.M{
 				"$type": "number",
 			},
@@ -359,10 +367,6 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 			"created_at":        bson.M{"$gte": from},
 			"status":            bson.M{"$ne": string(lead.StatusControversial)},
 			"semantic_category": bson.M{"$in": bson.A{"traders", "merchants", "ps_offers"}},
-			"qualification_source": bson.M{"$in": bson.A{
-				string(lead.QualificationSourceAI),
-				string(lead.QualificationSourceManual),
-			}},
 		}}},
 		{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: bson.D{

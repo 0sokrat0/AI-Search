@@ -57,7 +57,7 @@ const cards = computed(() => {
     : 0
   return [
     {
-      title: 'Сигналов обнаружено',
+      title: 'Лидов детектировано',
       icon: 'i-lucide-radar',
       value: s.totalDetected,
       sub: `за ${statsDays.value} дн.`

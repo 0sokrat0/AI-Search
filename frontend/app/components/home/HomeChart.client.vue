@@ -100,7 +100,7 @@ const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: трейде�
     <template #header>
       <div>
         <p class="text-xs text-muted uppercase mb-1.5 font-semibold tracking-wider">
-          Интенсивность сигналов
+          Интенсивность входящих сигналов
         </p>
         <p class="text-3xl text-highlighted font-semibold">
           {{ total }}

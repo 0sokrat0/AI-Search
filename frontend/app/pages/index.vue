@@ -86,7 +86,7 @@ const candidateRate = computed(() => {
               <span class="font-mono font-semibold">{{ ingestStats?.totalSignals ?? 0 }}</span>
             </div>
             <div class="flex justify-between items-center">
-              <span class="text-muted">Кандидаты в лиды</span>
+              <span class="text-muted">AI-кандидаты в лиды</span>
               <UBadge
                 :color="(ingestStats?.totalSignals ?? 0) > 0 ? (candidateRate >= 20 ? 'success' : candidateRate >= 8 ? 'warning' : 'neutral') : 'neutral'"
                 variant="subtle"

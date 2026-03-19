@@ -72,7 +72,6 @@ const yTraders = (d: DataRecord) => d.traders
 const yMerchants = (d: DataRecord) => d.merchants
 const yPSOffers = (d: DataRecord) => d.psOffers
 
-const total = computed(() => (chartBuckets.value || []).reduce((acc: number, d) => acc + d.total, 0))
 const tradersTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.traders, 0))
 const merchantsTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.merchants, 0))
 const psOffersTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.psOffers, 0))
@@ -100,10 +99,7 @@ const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: трейде�
     <template #header>
       <div>
         <p class="text-xs text-muted uppercase mb-1.5 font-semibold tracking-wider">
-          Интенсивность входящих сигналов
-        </p>
-        <p class="text-3xl text-highlighted font-semibold">
-          {{ total }}
+          Классификация по типам
         </p>
         <p class="text-sm text-muted mt-1">
           Тр <span class="font-medium text-success">{{ tradersTotal }}</span> ·

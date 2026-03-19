@@ -42,11 +42,6 @@ const { data: ingestStats } = await useFetch<IngestStats>('/api/signals/stats', 
   })
 })
 
-const candidateRate = computed(() => {
-  const s = ingestStats.value
-  if (!s || !s.totalSignals) return 0
-  return Math.round((s.leadCandidates / s.totalSignals) * 100)
-})
 </script>
 
 <template>
@@ -82,17 +77,8 @@ const candidateRate = computed(() => {
 
           <div class="space-y-3 text-sm">
             <div class="flex justify-between items-center">
-              <span class="text-muted">Сигналов за {{ ingestDays }}д</span>
-              <span class="font-mono font-semibold">{{ ingestStats?.totalSignals ?? 0 }}</span>
-            </div>
-            <div class="flex justify-between items-center">
               <span class="text-muted">AI-кандидаты в лиды</span>
-              <UBadge
-                :color="(ingestStats?.totalSignals ?? 0) > 0 ? (candidateRate >= 20 ? 'success' : candidateRate >= 8 ? 'warning' : 'neutral') : 'neutral'"
-                variant="subtle"
-              >
-                {{ (ingestStats?.totalSignals ?? 0) > 0 ? `${ingestStats?.leadCandidates ?? 0} (${candidateRate}%)` : 'нет данных' }}
-              </UBadge>
+              <span class="font-semibold">{{ ingestStats?.leadCandidates ?? 0 }}</span>
             </div>
             <div class="flex justify-between items-center">
               <span class="text-muted">За последний час</span>

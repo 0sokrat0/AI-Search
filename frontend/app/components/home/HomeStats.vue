@@ -30,14 +30,14 @@ const { data: stats } = await useFetch<LeadStats>('/api/leads/stats', {
     avgScoreApproved: 0,
     avgScoreRejected: 0,
     buckets: [],
-    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
-    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
+    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0, other: 0 },
+    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0, other: 0 },
     series: []
   })
 })
 
 function formatDistribution(distribution: LeadStats['approvedByCategory']) {
-  return `Тр ${distribution.traders} · М ${distribution.merchants} · ПС ${distribution.psOffers}`
+  return `Тр ${distribution.traders} · М ${distribution.merchants} · ПС ${distribution.psOffers} · Др ${distribution.other}`
 }
 
 const cards = computed(() => {
@@ -48,8 +48,8 @@ const cards = computed(() => {
     aiQualified: 0,
     manualApproved: 0,
     avgScoreRejected: 0,
-    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0 },
-    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0 }
+    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0, other: 0 },
+    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0, other: 0 }
   }
   const totalDecisions = s.approved + s.rejected
   const approvalRate = totalDecisions > 0

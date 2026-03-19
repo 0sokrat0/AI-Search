@@ -416,6 +416,8 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 			bucket.Merchants += row.Count
 		case "ps_offers":
 			bucket.PSOffers += row.Count
+		default:
+			bucket.Other += row.Count
 		}
 	}
 
@@ -438,6 +440,8 @@ func accumulateCategoryDistribution(target *lead.CategoryDistribution, category 
 		target.Merchants += count
 	case "ps_offers":
 		target.PSOffers += count
+	default:
+		target.Other += count
 	}
 }
 

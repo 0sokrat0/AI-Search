@@ -54,6 +54,7 @@ type CategoryDistribution struct {
 	Traders   int64 `json:"traders"`
 	Merchants int64 `json:"merchants"`
 	PSOffers  int64 `json:"psOffers"`
+	Other     int64 `json:"other"`
 }
 
 type CategorySeriesBucket struct {
@@ -61,6 +62,7 @@ type CategorySeriesBucket struct {
 	Traders   int64  `json:"traders"`
 	Merchants int64  `json:"merchants"`
 	PSOffers  int64  `json:"psOffers"`
+	Other     int64  `json:"other"`
 }
 
 type ListFilter struct {

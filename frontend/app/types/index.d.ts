@@ -187,17 +187,20 @@ export interface LeadStats {
     traders: number
     merchants: number
     psOffers: number
+    other: number
   }
   rejectedByCategory: {
     traders: number
     merchants: number
     psOffers: number
+    other: number
   }
   series: Array<{
     day: string
     traders: number
     merchants: number
     psOffers: number
+    other: number
   }>
 }
 

@@ -173,13 +173,13 @@ const categoryLabel = computed(() => {
   }
 })
 
-const categoryColor = computed<'info' | 'primary' | 'neutral'>(() => {
+const categoryColor = computed<'info' | 'primary' | 'error'>(() => {
   switch (props.mail.category) {
     case 'traders':
     case 'merchants':
       return 'info'
     case 'ps_offers': return 'primary'
-    default: return 'neutral'
+    default: return 'error'
   }
 })
 
@@ -681,7 +681,7 @@ function formatDateSafe(value?: string | null): string {
         <div class="mt-3">
           <UButton
             label="Шум"
-            color="neutral"
+            color="error"
             variant="soft"
             :loading="categoryFeedbackLoading"
             :disabled="categoryFeedbackLoading"

@@ -393,8 +393,12 @@ func (s *Service) applyInboxCategory(ctx context.Context, dto *DTO) {
 
 	if dto.LeadID != nil {
 		if dto.SemanticDirection != nil {
-			if category, ok := mapDirectionToCategory(*dto.SemanticDirection); ok && category != "noise" {
+			if category, ok := mapDirectionToCategory(*dto.SemanticDirection); ok {
 				dto.SemanticCategory = category
+				if category == "noise" {
+					dto.ClassificationReason = "Сигнал вручную помечен как шум"
+					return
+				}
 				dto.ClassificationReason = "Есть связанный лид, категория зафиксирована по semantic_direction"
 				dto.SemanticFlags = mergeSemanticFlags(dto.SemanticFlags, suggestSemanticFlags(dto.Text, category, *dto.SemanticDirection))
 				return
@@ -444,6 +448,13 @@ func assignPrimaryLabel(dto *DTO) {
 		dto.PrimaryLabel = "noise"
 		dto.PrimaryPercent = 100
 		return
+	}
+	if dto.SemanticDirection != nil {
+		if category, ok := mapDirectionToCategory(*dto.SemanticDirection); ok && category == "noise" {
+			dto.PrimaryLabel = "noise"
+			dto.PrimaryPercent = 100
+			return
+		}
 	}
 	if dto.LeadID != nil {
 		dto.PrimaryLabel = "lead"

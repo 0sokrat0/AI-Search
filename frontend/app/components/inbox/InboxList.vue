@@ -42,7 +42,7 @@ function categoryLabel(category?: string | null): string {
   }
 }
 
-function categoryColor(category?: string | null): 'success' | 'info' | 'warning' | 'primary' | 'neutral' {
+function categoryColor(category?: string | null): 'success' | 'info' | 'warning' | 'primary' | 'error' {
   switch (String(category || '').toLowerCase()) {
     case 'traders':
       return 'info'
@@ -52,7 +52,7 @@ function categoryColor(category?: string | null): 'success' | 'info' | 'warning'
     case 'ps_offers':
       return 'primary'
     default:
-      return 'neutral'
+      return 'error'
   }
 }
 

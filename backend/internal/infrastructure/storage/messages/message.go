@@ -33,6 +33,7 @@ type messageDoc struct {
 	SenderID          int64      `bson:"sender_id"`
 	SenderName        string     `bson:"sender_name"`
 	SenderUsername    string     `bson:"sender_username"`
+	ChatPeerType      string     `bson:"chat_peer_type,omitempty"`
 	IsScam            bool       `bson:"is_scam"`
 	IsFake            bool       `bson:"is_fake"`
 	IsPremium         bool       `bson:"is_premium"`
@@ -596,6 +597,7 @@ func toDoc(m *message.Message) bson.M {
 		"sender_id":          m.SenderID(),
 		"sender_name":        m.SenderName(),
 		"sender_username":    m.SenderUsername(),
+		"chat_peer_type":     m.ChatPeerType(),
 		"is_scam":            m.IsScam(),
 		"is_fake":            m.IsFake(),
 		"is_premium":         m.IsPremium(),
@@ -626,6 +628,7 @@ func fromDoc(d messageDoc) *message.Message {
 		d.SimilarityScore, d.ClassifiedAsLead, d.SemanticDirection,
 		message.Metadata{},
 	)
+	m.SetChatPeerType(d.ChatPeerType)
 	m.SetSenderTrust(d.IsScam, d.IsFake, d.IsPremium)
 	return m
 }

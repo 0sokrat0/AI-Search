@@ -17,6 +17,7 @@ type PendingMsg struct {
 	SenderName     string
 	SenderUsername string
 	SenderPeerType string
+	ChatPeerType   string
 	IsScam         bool
 	IsFake         bool
 	IsPremium      bool

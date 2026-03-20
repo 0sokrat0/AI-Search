@@ -365,6 +365,7 @@ func (c *Client) enqueueMessage(e tg.Entities, msg *tg.Message) {
 		SenderName:     senderName,
 		SenderUsername: meta.Username,
 		SenderPeerType: c.getPeerType(msg.FromID, msg.PeerID),
+		ChatPeerType:   c.getChatPeerType(e, msg.PeerID),
 		IsScam:         meta.IsScam,
 		IsFake:         meta.IsFake,
 		IsPremium:      meta.IsPremium,
@@ -477,6 +478,27 @@ func (c *Client) getPeerType(primary tg.PeerClass, fallback tg.PeerClass) string
 		}
 	}
 	return ""
+}
+
+func (c *Client) getChatPeerType(e tg.Entities, peer tg.PeerClass) string {
+	switch p := peer.(type) {
+	case *tg.PeerUser:
+		return "dm"
+	case *tg.PeerChat:
+		return "group"
+	case *tg.PeerChannel:
+		if ch, ok := e.Channels[p.ChannelID]; ok && ch != nil {
+			if ch.Megagroup {
+				return "supergroup"
+			}
+			if ch.Broadcast {
+				return "channel"
+			}
+		}
+		return "channel"
+	default:
+		return ""
+	}
 }
 
 type senderMeta struct {

@@ -186,6 +186,19 @@ const categoryColor = computed<'info' | 'primary' | 'warning' | 'error'>(() => {
   }
 })
 
+const sourceBadge = computed<{ label: string, color: 'info' | 'warning' | 'neutral' } | null>(() => {
+  switch (String(props.mail.chatPeerType || '').toLowerCase()) {
+    case 'channel':
+      return { label: 'Канал', color: 'info' }
+    case 'supergroup':
+      return { label: 'Супергруппа', color: 'warning' }
+    case 'group':
+      return { label: 'Группа', color: 'neutral' }
+    default:
+      return null
+  }
+})
+
 const bestBusinessMatch = computed(() => {
   const candidates = [
     { label: 'Трейдеры', score: Number(props.mail.traderScore ?? 0) },
@@ -419,6 +432,13 @@ function formatDateSafe(value?: string | null): string {
         <UBadge :color="categoryColor" variant="soft" size="xs">
           {{ categoryLabel }}
         </UBadge>
+        <UBadge
+          v-if="sourceBadge"
+          :label="sourceBadge.label"
+          :color="sourceBadge.color"
+          variant="soft"
+          size="xs"
+        />
         <UBadge
           v-if="leadPipelineLabel"
           :label="leadPipelineLabel"

@@ -129,6 +129,7 @@ const allMailboxSignals = computed<Mail[]>(() => {
       status: 'subscribed' as const,
       location: signal.chatTitle
     },
+    chatPeerType: signal.chatPeerType ?? undefined,
     telegramUsername: signal.contact || '',
     subject: signal.chatTitle,
     body: signal.text,

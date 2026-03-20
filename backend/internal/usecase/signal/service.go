@@ -347,6 +347,7 @@ func toSignalDTO(m *message.Message, otherChatsCount int) DTO {
 	return DTO{
 		ID:                     m.ID(),
 		ChatTitle:              m.ChatTitle(),
+		ChatPeerType:           m.ChatPeerType(),
 		FromName:               name,
 		Contact:                contact,
 		SenderTelegramID:       m.SenderID(),

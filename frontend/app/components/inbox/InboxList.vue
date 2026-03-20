@@ -91,6 +91,30 @@ function currentCategoryShortLabel(mail: Mail): string | null {
   }
 }
 
+function sourceLabel(mail: Mail): string | null {
+  switch (String(mail.chatPeerType || '').toLowerCase()) {
+    case 'channel':
+      return 'Канал'
+    case 'supergroup':
+      return 'Супергруппа'
+    case 'group':
+      return 'Группа'
+    default:
+      return null
+  }
+}
+
+function sourceColor(mail: Mail): 'info' | 'warning' | 'neutral' {
+  switch (String(mail.chatPeerType || '').toLowerCase()) {
+    case 'channel':
+      return 'info'
+    case 'supergroup':
+      return 'warning'
+    default:
+      return 'neutral'
+  }
+}
+
 function isSelected(signalId: string): boolean {
   return selectedIds.value.includes(signalId)
 }
@@ -215,6 +239,13 @@ defineShortcuts({
             :label="categoryLabel(mail.category)"
             :color="categoryColor(mail.category)"
             variant="subtle"
+            size="xs"
+          />
+          <UBadge
+            v-if="sourceLabel(mail)"
+            :label="sourceLabel(mail) || ''"
+            :color="sourceColor(mail)"
+            variant="soft"
             size="xs"
           />
           <UBadge

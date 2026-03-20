@@ -77,7 +77,7 @@ func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 		if text == "" {
 			continue
 		}
-		if strings.TrimSpace(m.SenderUsername) == "" && m.SenderPeerType == "user" {
+		if strings.TrimSpace(m.SenderUsername) == "" && m.IsDM {
 			h.log.Debug("message skipped: sender has no direct username",
 				zap.Int64("sender_id", m.SenderID),
 				zap.Int64("peer_id", m.PeerID),
@@ -180,6 +180,7 @@ func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 		}
 
 		msg.SetSenderTrust(m.IsScam, m.IsFake, m.IsPremium)
+		msg.SetChatPeerType(m.ChatPeerType)
 		msg.SetIsDM(m.IsDM)
 
 		if similarityScore != nil && classifiedAsLead != nil {

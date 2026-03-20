@@ -29,6 +29,7 @@ type Message struct {
 	senderID          int64
 	senderName        string
 	senderUsername    string
+	chatPeerType      string
 	isScam            bool
 	isFake            bool
 	isPremium         bool
@@ -127,6 +128,7 @@ func (m *Message) MessageID() int64           { return m.messageID }
 func (m *Message) SenderID() int64            { return m.senderID }
 func (m *Message) SenderName() string         { return m.senderName }
 func (m *Message) SenderUsername() string     { return m.senderUsername }
+func (m *Message) ChatPeerType() string       { return m.chatPeerType }
 func (m *Message) IsScam() bool               { return m.isScam }
 func (m *Message) IsFake() bool               { return m.isFake }
 func (m *Message) IsPremium() bool            { return m.isPremium }
@@ -144,11 +146,12 @@ func (m *Message) ClassifiedAsLead() *bool    { return m.classifiedAsLead }
 func (m *Message) SemanticDirection() *string { return m.semanticDirection }
 func (m *Message) Metadata() Metadata         { return m.metadata }
 
-func (m *Message) IsDM() bool           { return m.isDM }
-func (m *Message) SetIgnored(v bool)     { m.isIgnored = v }
-func (m *Message) SetTeamMember(v bool)  { m.isTeamMember = v }
-func (m *Message) SetSpamSender(v bool)  { m.isSpamSender = v }
-func (m *Message) SetIsDM(v bool)       { m.isDM = v }
+func (m *Message) IsDM() bool               { return m.isDM }
+func (m *Message) SetChatPeerType(v string) { m.chatPeerType = v }
+func (m *Message) SetIgnored(v bool)        { m.isIgnored = v }
+func (m *Message) SetTeamMember(v bool)     { m.isTeamMember = v }
+func (m *Message) SetSpamSender(v bool)     { m.isSpamSender = v }
+func (m *Message) SetIsDM(v bool)           { m.isDM = v }
 func (m *Message) SetViewed(v bool) {
 	m.isViewed = v
 	if v {

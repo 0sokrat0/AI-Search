@@ -46,6 +46,7 @@ export interface Mail {
   signalId: string // реальный UUID из MongoDB (для API вызовов)
   unread?: boolean
   from: User
+  chatPeerType?: 'dm' | 'group' | 'supergroup' | 'channel' | string
   telegramUsername?: string
   subject: string
   body: string
@@ -114,6 +115,7 @@ export interface CursorPage<T> {
 export interface Signal {
   id: string
   chatTitle: string
+  chatPeerType?: 'dm' | 'group' | 'supergroup' | 'channel' | string
   fromName: string
   contact: string
   text: string
@@ -135,6 +137,7 @@ export interface LeadBrief {
 export interface SignalItem {
   id: string
   chatTitle: string
+  chatPeerType?: 'dm' | 'group' | 'supergroup' | 'channel' | string
   fromName: string
   contact: string
   text: string

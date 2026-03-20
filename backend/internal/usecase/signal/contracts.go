@@ -33,6 +33,7 @@ type InboxPage struct {
 type DTO struct {
 	ID                     string   `json:"id"`
 	ChatTitle              string   `json:"chatTitle"`
+	ChatPeerType           string   `json:"chatPeerType"`
 	FromName               string   `json:"fromName"`
 	Contact                string   `json:"contact"`
 	SenderTelegramID       int64    `json:"senderTelegramId"`

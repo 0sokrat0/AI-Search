@@ -31,6 +31,9 @@ services:
     restart: unless-stopped
     volumes:
       - qdrant_data:/qdrant/data
+    ports:
+      - "${QDRANT_HTTP_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
     expose:
       - "6333"
       - "6334"

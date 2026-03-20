@@ -186,13 +186,22 @@ export interface LeadStats {
   avgScoreApproved: number
   avgScoreRejected: number
   buckets: ScoreBucket[]
+  detectedByCategory: {
+    traderSearch: number
+    traders: number
+    merchants: number
+    psOffers: number
+    other: number
+  }
   approvedByCategory: {
+    traderSearch: number
     traders: number
     merchants: number
     psOffers: number
     other: number
   }
   rejectedByCategory: {
+    traderSearch: number
     traders: number
     merchants: number
     psOffers: number
@@ -200,6 +209,7 @@ export interface LeadStats {
   }
   series: Array<{
     day: string
+    traderSearch: number
     traders: number
     merchants: number
     psOffers: number
@@ -299,6 +309,7 @@ export interface ChartDayBucket {
   day: string
   total: number
   target: number
+  traderSearch: number
   traders: number
   merchants: number
   psOffers: number

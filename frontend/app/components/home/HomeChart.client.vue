@@ -12,6 +12,7 @@ const props = defineProps<{
 
 type DataRecord = {
   date: Date
+  traderSearch: number
   traders: number
   merchants: number
   psOffers: number
@@ -43,12 +44,13 @@ watch([() => props.period, () => props.range, chartBuckets], () => {
     monthly: eachMonthOfInterval
   } as Record<Period, typeof eachDayOfInterval>)[props.period](props.range)
 
-  const buckets = new Map<string, { traders: number, merchants: number, psOffers: number }>()
+  const buckets = new Map<string, { traderSearch: number, traders: number, merchants: number, psOffers: number }>()
   for (const b of chartBuckets.value || []) {
     const dt = parseISO(b.day)
     const key = toBucketKey(dt)
-    const existing = buckets.get(key) ?? { traders: 0, merchants: 0, psOffers: 0 }
+    const existing = buckets.get(key) ?? { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0 }
     buckets.set(key, {
+      traderSearch: existing.traderSearch + b.traderSearch,
       traders: existing.traders + b.traders,
       merchants: existing.merchants + b.merchants,
       psOffers: existing.psOffers + b.psOffers
@@ -60,6 +62,7 @@ watch([() => props.period, () => props.range, chartBuckets], () => {
     const b = buckets.get(key)
     return {
       date,
+      traderSearch: b?.traderSearch ?? 0,
       traders: b?.traders ?? 0,
       merchants: b?.merchants ?? 0,
       psOffers: b?.psOffers ?? 0
@@ -68,10 +71,12 @@ watch([() => props.period, () => props.range, chartBuckets], () => {
 }, { immediate: true })
 
 const x = (_: DataRecord, i: number) => i
+const yTraderSearch = (d: DataRecord) => d.traderSearch
 const yTraders = (d: DataRecord) => d.traders
 const yMerchants = (d: DataRecord) => d.merchants
 const yPSOffers = (d: DataRecord) => d.psOffers
 
+const traderSearchTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.traderSearch, 0))
 const tradersTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.traders, 0))
 const merchantsTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.merchants, 0))
 const psOffersTotal = computed(() => data.value.reduce((acc: number, d) => acc + d.psOffers, 0))
@@ -91,7 +96,7 @@ const xTicks = (i: number) => {
   return formatDate(data.value[i].date)
 }
 
-const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: трейдеры ${d.traders}, мерчанты ${d.merchants}, ПС ${d.psOffers}`
+const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: поиск трейдеров ${d.traderSearch}, трейдеры ${d.traders}, мерчанты ${d.merchants}, ПС ${d.psOffers}`
 </script>
 
 <template>
@@ -102,8 +107,9 @@ const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: трейде�
           Классификация по типам
         </p>
         <p class="text-sm text-muted mt-1">
-          Тр <span class="font-medium text-success">{{ tradersTotal }}</span> ·
-          М <span class="font-medium text-info">{{ merchantsTotal }}</span> ·
+          Поиск трейдеров <span class="font-medium text-warning">{{ traderSearchTotal }}</span> ·
+          Трейдеры <span class="font-medium text-success">{{ tradersTotal }}</span> ·
+          Мерчанты <span class="font-medium text-info">{{ merchantsTotal }}</span> ·
           ПС <span class="font-medium text-primary">{{ psOffersTotal }}</span>
         </p>
       </div>
@@ -116,6 +122,11 @@ const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: трейде�
         class="h-96"
         :width="width"
       >
+        <VisLine
+          :x="x"
+          :y="yTraderSearch"
+          color="var(--ui-warning)"
+        />
         <VisLine
           :x="x"
           :y="yTraders"
@@ -146,6 +157,7 @@ const tooltipTemplate = (d: DataRecord) => `${formatDate(d.date)}: трейде�
         <VisTooltip />
       </VisXYContainer>
       <div class="px-4 pt-2 flex items-center gap-4 text-xs text-muted border-t border-default/50 mt-2">
+        <span class="inline-flex items-center gap-1"><span class="size-2 rounded-full bg-warning" /> Поиск трейдеров</span>
         <span class="inline-flex items-center gap-1"><span class="size-2 rounded-full bg-success" /> Трейдеры</span>
         <span class="inline-flex items-center gap-1"><span class="size-2 rounded-full bg-info" /> Мерчанты</span>
         <span class="inline-flex items-center gap-1"><span class="size-2 rounded-full bg-primary" /> Предложения ПС</span>

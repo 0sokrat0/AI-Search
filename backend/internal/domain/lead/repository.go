@@ -37,6 +37,7 @@ type Stats struct {
 	AvgScoreApproved   float64                `json:"avgScoreApproved"`
 	AvgScoreRejected   float64                `json:"avgScoreRejected"`
 	Buckets            []ScoreBucket          `json:"buckets"`
+	DetectedByCategory CategoryDistribution   `json:"detectedByCategory"`
 	ApprovedByCategory CategoryDistribution   `json:"approvedByCategory"`
 	RejectedByCategory CategoryDistribution   `json:"rejectedByCategory"`
 	Series             []CategorySeriesBucket `json:"series"`
@@ -51,18 +52,20 @@ type ScoreBucket struct {
 }
 
 type CategoryDistribution struct {
-	Traders   int64 `json:"traders"`
-	Merchants int64 `json:"merchants"`
-	PSOffers  int64 `json:"psOffers"`
-	Other     int64 `json:"other"`
+	TraderSearch int64 `json:"traderSearch"`
+	Traders      int64 `json:"traders"`
+	Merchants    int64 `json:"merchants"`
+	PSOffers     int64 `json:"psOffers"`
+	Other        int64 `json:"other"`
 }
 
 type CategorySeriesBucket struct {
-	Day       string `json:"day"`
-	Traders   int64  `json:"traders"`
-	Merchants int64  `json:"merchants"`
-	PSOffers  int64  `json:"psOffers"`
-	Other     int64  `json:"other"`
+	Day          string `json:"day"`
+	TraderSearch int64  `json:"traderSearch"`
+	Traders      int64  `json:"traders"`
+	Merchants    int64  `json:"merchants"`
+	PSOffers     int64  `json:"psOffers"`
+	Other        int64  `json:"other"`
 }
 
 type ListFilter struct {

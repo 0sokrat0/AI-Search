@@ -536,9 +536,15 @@ func (r *mongoRepository) GetChartData(ctx context.Context, tenantID string, fro
 					1, 0,
 				},
 			}}},
+			{Key: "trader_search", Value: bson.M{"$sum": bson.M{
+				"$cond": bson.A{
+					bson.M{"$in": bson.A{"$semantic_direction", bson.A{"trader_search", "search_trader", "search_traders"}}},
+					1, 0,
+				},
+			}}},
 			{Key: "traders", Value: bson.M{"$sum": bson.M{
 				"$cond": bson.A{
-					bson.M{"$in": bson.A{"$semantic_direction", bson.A{"trader_search", "trader", "traders"}}},
+					bson.M{"$in": bson.A{"$semantic_direction", bson.A{"trader", "traders"}}},
 					1, 0,
 				},
 			}}},
@@ -567,21 +573,23 @@ func (r *mongoRepository) GetChartData(ctx context.Context, tenantID string, fro
 	buckets := make([]message.ChartDayBucket, 0, 30)
 	for cur.Next(ctx) {
 		var row struct {
-			ID        string `bson:"_id"`
-			Total     int64  `bson:"total"`
-			Target    int64  `bson:"target"`
-			Traders   int64  `bson:"traders"`
-			Merchants int64  `bson:"merchants"`
-			PSOffers  int64  `bson:"ps_offers"`
+			ID           string `bson:"_id"`
+			Total        int64  `bson:"total"`
+			Target       int64  `bson:"target"`
+			TraderSearch int64  `bson:"trader_search"`
+			Traders      int64  `bson:"traders"`
+			Merchants    int64  `bson:"merchants"`
+			PSOffers     int64  `bson:"ps_offers"`
 		}
 		if err := cur.Decode(&row); err == nil {
 			buckets = append(buckets, message.ChartDayBucket{
-				Day:       row.ID,
-				Total:     row.Total,
-				Target:    row.Target,
-				Traders:   row.Traders,
-				Merchants: row.Merchants,
-				PSOffers:  row.PSOffers,
+				Day:          row.ID,
+				Total:        row.Total,
+				Target:       row.Target,
+				TraderSearch: row.TraderSearch,
+				Traders:      row.Traders,
+				Merchants:    row.Merchants,
+				PSOffers:     row.PSOffers,
 			})
 		}
 	}

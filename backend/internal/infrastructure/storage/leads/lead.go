@@ -271,6 +271,8 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 			stats.ManualApproved += row.Count
 		}
 
+		accumulateCategoryDistribution(&stats.DetectedByCategory, row.ID.Category, row.Count)
+
 		if row.ID.Category == "noise" || row.ID.Category == "spam" {
 			stats.Rejected += row.Count
 			rejectedScoreSum += row.AvgScore * float64(row.Count)
@@ -410,7 +412,9 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 			seriesMap[row.ID.Day] = bucket
 		}
 		switch row.ID.Category {
-		case "trader_search", "traders":
+		case "trader_search":
+			bucket.TraderSearch += row.Count
+		case "traders":
 			bucket.Traders += row.Count
 		case "merchants":
 			bucket.Merchants += row.Count
@@ -434,7 +438,9 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 
 func accumulateCategoryDistribution(target *lead.CategoryDistribution, category string, count int64) {
 	switch category {
-	case "trader_search", "traders":
+	case "trader_search":
+		target.TraderSearch += count
+	case "traders":
 		target.Traders += count
 	case "merchants":
 		target.Merchants += count

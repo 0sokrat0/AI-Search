@@ -30,14 +30,21 @@ const { data: stats } = await useFetch<LeadStats>('/api/leads/stats', {
     avgScoreApproved: 0,
     avgScoreRejected: 0,
     buckets: [],
-    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0, other: 0 },
-    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0, other: 0 },
+    detectedByCategory: { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0, other: 0 },
+    approvedByCategory: { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0, other: 0 },
+    rejectedByCategory: { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0, other: 0 },
     series: []
   })
 })
 
 function formatDistribution(distribution: LeadStats['approvedByCategory']) {
-  return `Тр ${distribution.traders} · М ${distribution.merchants} · ПС ${distribution.psOffers} · Др ${distribution.other}`
+  return [
+    `Поиск трейдеров ${distribution.traderSearch}`,
+    `Трейдеры ${distribution.traders}`,
+    `Мерчанты ${distribution.merchants}`,
+    `ПС ${distribution.psOffers}`,
+    distribution.other > 0 ? `Другое ${distribution.other}` : ''
+  ].filter(Boolean).join(' · ')
 }
 
 const cards = computed(() => {
@@ -48,8 +55,9 @@ const cards = computed(() => {
     aiQualified: 0,
     manualApproved: 0,
     avgScoreRejected: 0,
-    approvedByCategory: { traders: 0, merchants: 0, psOffers: 0, other: 0 },
-    rejectedByCategory: { traders: 0, merchants: 0, psOffers: 0, other: 0 }
+    detectedByCategory: { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0, other: 0 },
+    approvedByCategory: { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0, other: 0 },
+    rejectedByCategory: { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0, other: 0 }
   }
   const totalDecisions = s.approved + s.rejected
   const approvalRate = totalDecisions > 0
@@ -57,10 +65,10 @@ const cards = computed(() => {
     : 0
   return [
     {
-      title: 'Лидов детектировано',
+      title: 'Лидов в радаре',
       icon: 'i-lucide-radar',
       value: s.totalDetected,
-      sub: `за ${statsDays.value} дн.`
+      sub: `${formatDistribution(s.detectedByCategory)} · за ${statsDays.value} дн.`
     },
     {
       title: 'Лидов подтверждено',

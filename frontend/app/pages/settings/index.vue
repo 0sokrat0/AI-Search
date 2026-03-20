@@ -39,15 +39,6 @@ const psOfferThreshold = ref(0.60)
 const ignoreKeywords = ref<string[]>([])
 const noiseCleanupEnabled = ref(true)
 const showMultiAccountBadges = ref(true)
-const showCleanupNoiseModal = ref(false)
-const cleanupNoiseHours = ref('72')
-const cleanupNoiseLoading = ref(false)
-
-function normalizeCleanupHours(value: string | number, fallback = 72): string {
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) return String(fallback)
-  return String(Math.min(8760, Math.max(1, Math.round(parsed))))
-}
 watch(settings, (next) => {
   if (!next) return
   leadThreshold.value = sliderToNumber(next.lead_threshold, 0.70)
@@ -98,30 +89,6 @@ async function save() {
   }
 }
 
-async function runNoiseCleanup() {
-  cleanupNoiseHours.value = normalizeCleanupHours(cleanupNoiseHours.value)
-  cleanupNoiseLoading.value = true
-  try {
-    const result = await $fetch<{ deleted: number, hours: number }>('/api/settings/cleanup-noise', {
-      method: 'POST',
-      body: { older_than_hours: cleanupNoiseHours.value }
-    })
-    toast.add({
-      title: 'Очистка завершена',
-      description: `Удалено шумовых сообщений: ${result.deleted}`,
-      color: 'success'
-    })
-    showCleanupNoiseModal.value = false
-  } catch (e: any) {
-    toast.add({
-      title: 'Ошибка очистки',
-      description: e?.message || 'Не удалось запустить очистку шума',
-      color: 'error'
-    })
-  } finally {
-    cleanupNoiseLoading.value = false
-  }
-}
 </script>
 
 <template>
@@ -149,49 +116,7 @@ async function runNoiseCleanup() {
           class="w-fit lg:ms-auto"
           @click="save"
         />
-        <UButton
-          label="Очистить шум"
-          color="warning"
-          variant="soft"
-          class="w-fit"
-          @click="showCleanupNoiseModal = true"
-        />
       </UPageCard>
-
-      <UModal v-model:open="showCleanupNoiseModal" title="Очистка шумовых сообщений">
-        <template #body>
-          <div class="space-y-4">
-            <p class="text-sm text-muted">
-              Удалит шумовые сообщения из Mongo старше указанного периода.
-            </p>
-            <p class="text-xs text-muted">
-              Автоочистка на backend срабатывает не чаще одного раза в 30 минут и удаляет шум старше 72 часов.
-            </p>
-            <div class="space-y-2">
-              <p class="text-sm font-medium">
-                Старше, чем (часов)
-              </p>
-              <UInput
-                v-model="cleanupNoiseHours"
-                type="number"
-                min="1"
-                max="8760"
-                placeholder="72"
-              />
-            </div>
-          </div>
-        </template>
-        <template #footer>
-          <div class="flex justify-end gap-2 w-full">
-            <UButton color="neutral" variant="ghost" @click="showCleanupNoiseModal = false">
-              Отмена
-            </UButton>
-            <UButton color="warning" :loading="cleanupNoiseLoading" @click="runNoiseCleanup">
-              Запустить очистку
-            </UButton>
-          </div>
-        </template>
-      </UModal>
 
       <UPageCard variant="subtle">
         <div class="flex max-sm:flex-col justify-between items-start gap-4 py-4">

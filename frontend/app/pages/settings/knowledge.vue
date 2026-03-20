@@ -19,7 +19,7 @@ const result = ref<KnowledgeImportResult | null>(null)
 const importState = ref<'idle' | 'ready' | 'uploading' | 'done'>('idle')
 const previewRows = ref<Array<{ text: string, category: string }>>([])
 const previewError = ref('')
-const formatHint = 'Рекомендуемый CSV: колонки "целевое сообщение" и "тип лида". Старый формат text,category тоже поддерживается. Допустимые типы: merchants, ps_offers, trader_search, traders, noise.'
+const formatHint = 'CSV с двумя колонками: "текст" и "категория". Также поддерживаются "целевое сообщение" + "тип лида" и старый format text,category. Допустимые типы: merchants, ps_offers, trader_search, traders, noise.'
 const previewColumns = [
   { id: 'text', accessorKey: 'text', header: 'Целевое сообщение' },
   { id: 'category', accessorKey: 'category', header: 'Тип лида' }
@@ -106,55 +106,82 @@ async function buildPreview(file: File) {
 }
 
 function parsePreviewRows(content: string) {
-  const lines = content
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(Boolean)
-
-  if (lines.length <= 1) {
+  const rows = parseCSVContent(content)
+  if (rows.length <= 1) {
     return []
   }
 
-  const delimiter = lines[0]?.includes(';') ? ';' : ','
-  const headers = splitCSVLine(lines[0] || '', delimiter).map(value => normalizeColumnName(value))
-  const textIndex = headers.findIndex(value => ['text', 'targetmessage', 'targetmsg', 'целевоесообщение', 'сообщение'].includes(value))
-  const categoryIndex = headers.findIndex(value => ['category', 'leadtype', 'leadkind', 'типлида', 'тип'].includes(value))
+  const [headerRow] = rows
+  if (!headerRow) {
+    return []
+  }
+
+  const headers = headerRow.map(value => normalizeColumnName(value))
+  const textIndex = headers.findIndex(value => ['text', 'текст', 'targetmessage', 'targetmsg', 'целевоесообщение', 'сообщение'].includes(value))
+  const categoryIndex = headers.findIndex(value => ['category', 'категория', 'leadtype', 'leadkind', 'типлида', 'тип'].includes(value))
 
   if (textIndex === -1 || categoryIndex === -1) {
-    previewError.value = 'В файле должны быть колонки "целевое сообщение" и "тип лида" или старые text/category.'
+    previewError.value = 'В файле должны быть колонки "текст" и "категория" либо совместимые названия вроде "целевое сообщение" и "тип лида".'
     return []
   }
 
-  return lines.slice(1, 7).map((line) => {
-    const values = splitCSVLine(line, delimiter)
+  return rows.slice(1, 7).map((values) => {
     return {
-      text: values[textIndex] || '',
-      category: values[categoryIndex] || ''
+      text: (values[textIndex] || '').trim(),
+      category: (values[categoryIndex] || '').trim()
     }
   }).filter(row => row.text && row.category)
 }
 
-function splitCSVLine(line: string, delimiter: string) {
-  const values: string[] = []
+function parseCSVContent(content: string) {
+  const delimiter = detectDelimiter(content)
+  const rows: string[][] = []
   let current = ''
+  let row: string[] = []
   let inQuotes = false
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i]
     if (char === '"') {
+      if (inQuotes && content[i + 1] === '"') {
+        current += '"'
+        i++
+        continue
+      }
       inQuotes = !inQuotes
       continue
     }
     if (char === delimiter && !inQuotes) {
-      values.push(current.trim())
+      row.push(current)
+      current = ''
+      continue
+    }
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && content[i + 1] === '\n') {
+        i++
+      }
+      row.push(current)
+      if (row.some(value => value.trim() !== '')) {
+        rows.push(row.map(value => value.trim()))
+      }
+      row = []
       current = ''
       continue
     }
     current += char
   }
 
-  values.push(current.trim())
-  return values
+  row.push(current)
+  if (row.some(value => value.trim() !== '')) {
+    rows.push(row.map(value => value.trim()))
+  }
+
+  return rows
+}
+
+function detectDelimiter(content: string) {
+  const firstLine = content.split(/\r?\n/, 1)[0] || ''
+  return firstLine.includes(';') && !firstLine.includes(',') ? ';' : ','
 }
 
 function normalizeColumnName(value: string) {

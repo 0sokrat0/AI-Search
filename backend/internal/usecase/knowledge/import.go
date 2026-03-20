@@ -115,9 +115,9 @@ func parseRows(content string) ([]importRow, error) {
 	categoryIdx := -1
 	for i, raw := range header {
 		switch normalizeColumnName(raw) {
-		case "text", "targetmessage", "targetmsg", "целевоесообщение", "сообщение":
+		case "text", "текст", "targetmessage", "targetmsg", "целевоесообщение", "сообщение":
 			textIdx = i
-		case "category", "leadtype", "leadkind", "типлида", "тип":
+		case "category", "категория", "leadtype", "leadkind", "типлида", "тип":
 			categoryIdx = i
 		}
 	}

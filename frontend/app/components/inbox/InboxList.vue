@@ -30,8 +30,10 @@ function formatListDate(value?: string | null): string {
 
 function categoryLabel(category?: string | null): string {
   switch (String(category || '').toLowerCase()) {
+    case 'trader_search':
+      return 'Поиск трейдеров'
     case 'traders':
-      return 'Трейдеры / Поиск трейдеров'
+      return 'Трейдеры'
     case 'merchants':
     case 'processing_requests':
       return 'Мерчанты'
@@ -44,6 +46,8 @@ function categoryLabel(category?: string | null): string {
 
 function categoryColor(category?: string | null): 'success' | 'info' | 'warning' | 'primary' | 'error' {
   switch (String(category || '').toLowerCase()) {
+    case 'trader_search':
+      return 'warning'
     case 'traders':
       return 'info'
     case 'merchants':
@@ -74,6 +78,8 @@ function bestBusinessMatch(mail: Mail): { label: string, percent: number } | nul
 
 function currentCategoryShortLabel(mail: Mail): string | null {
   switch (String(mail.category || '').toLowerCase()) {
+    case 'trader_search':
+      return 'Поиск трейдеров'
     case 'traders':
       return 'Трейдеры'
     case 'merchants':

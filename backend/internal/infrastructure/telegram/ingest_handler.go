@@ -77,7 +77,7 @@ func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 		if text == "" {
 			continue
 		}
-		if strings.TrimSpace(m.SenderUsername) == "" {
+		if strings.TrimSpace(m.SenderUsername) == "" && m.SenderPeerType == "user" {
 			h.log.Debug("message skipped: sender has no direct username",
 				zap.Int64("sender_id", m.SenderID),
 				zap.Int64("peer_id", m.PeerID),
@@ -217,7 +217,7 @@ func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 				if semanticDirection != nil {
 					l.SetSemanticDirection(*semanticDirection)
 					switch normalizeLeadCategory(*semanticDirection) {
-					case "merchants", "traders", "ps_offers":
+					case "trader_search", "merchants", "traders", "ps_offers":
 						l.SetSemanticCategory(normalizeLeadCategory(*semanticDirection))
 					}
 				}
@@ -298,6 +298,8 @@ func normalizeLeadCategory(direction string) string {
 	switch strings.ToLower(strings.TrimSpace(direction)) {
 	case "merchant", "merchants", "merch":
 		return "merchants"
+	case "trader_search", "search_trader", "search_traders", "looking_for_trader":
+		return "trader_search"
 	case "trader", "traders":
 		return "traders"
 	case "processing_request", "processing_requests", "request_processing":

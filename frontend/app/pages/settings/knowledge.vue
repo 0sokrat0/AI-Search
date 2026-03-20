@@ -19,7 +19,7 @@ const result = ref<KnowledgeImportResult | null>(null)
 const importState = ref<'idle' | 'ready' | 'uploading' | 'done'>('idle')
 const previewRows = ref<Array<{ text: string, category: string }>>([])
 const previewError = ref('')
-const formatHint = 'CSV с колонками text,category. Допустимые category: merchants, ps_offers, traders, noise. Старый processing_requests тоже принимается и будет загружен как merchants.'
+const formatHint = 'CSV с колонками text,category. Допустимые category: merchants, ps_offers, trader_search, traders, noise. Старый processing_requests тоже принимается и будет загружен как merchants.'
 const previewColumns = [
   { id: 'text', accessorKey: 'text', header: 'Text' },
   { id: 'category', accessorKey: 'category', header: 'Category' }
@@ -30,6 +30,7 @@ const resultRows = computed(() => {
   return [
     { category: 'merchants', count: result.value.merchants },
     { category: 'ps_offers', count: result.value.psOffers },
+    { category: 'trader_search', count: result.value.traderSearch },
     { category: 'traders', count: result.value.traders },
     { category: 'noise', count: result.value.noise }
   ]

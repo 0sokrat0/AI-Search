@@ -240,6 +240,8 @@ func normalizeInboxTab(v string) string {
 
 func normalizeInboxCategory(v string) string {
 	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "trader_search", "search_trader", "search_traders":
+		return "trader_search"
 	case "trader", "traders":
 		return "traders"
 	case "merchant", "merchants", "merch":

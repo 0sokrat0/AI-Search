@@ -7,7 +7,7 @@ definePageMeta({
   middleware: 'auth'
 })
 
-type SignalCategoryFilter = 'all' | 'traders' | 'merchants' | 'ps_offers' | 'noise'
+type SignalCategoryFilter = 'all' | 'trader_search' | 'traders' | 'merchants' | 'ps_offers' | 'noise'
 
 const categoryItems = computed<Array<{ label: string, value: SignalCategoryFilter }>>(() => {
   const items: Array<{ label: string, value: SignalCategoryFilter }> = [{
@@ -17,7 +17,10 @@ const categoryItems = computed<Array<{ label: string, value: SignalCategoryFilte
     label: 'Мерчанты',
     value: 'merchants'
   }, {
-    label: 'Трейдеры / Поиск трейдеров',
+    label: 'Поиск трейдеров',
+    value: 'trader_search'
+  }, {
+    label: 'Трейдеры',
     value: 'traders'
   }, {
     label: 'Предложение ПС',
@@ -34,7 +37,7 @@ const selectedCategory = ref<SignalCategoryFilter>('all')
 const selectedChat = ref<string>('all')
 const showArchived = ref(false)
 const selectedSignalIds = ref<string[]>([])
-const bulkCategory = ref<'traders' | 'merchants' | 'ps_offers' | 'noise'>('traders')
+const bulkCategory = ref<'trader_search' | 'traders' | 'merchants' | 'ps_offers' | 'noise'>('traders')
 const bulkLoading = ref(false)
 const cleanupNoiseLoading = ref(false)
 const cleanupNoiseHours = ref('72')
@@ -90,6 +93,7 @@ const { data: appSettings } = await useFetch('/api/settings', {
 function isCategoryFilter(value: unknown): value is SignalCategoryFilter {
   return value === 'all'
     || value === 'traders'
+    || value === 'trader_search'
     || value === 'merchants'
     || value === 'ps_offers'
     || value === 'noise'
@@ -97,6 +101,8 @@ function isCategoryFilter(value: unknown): value is SignalCategoryFilter {
 
 function normalizeMailCategory(value?: string | null): Mail['category'] {
   switch (String(value || '').toLowerCase()) {
+    case 'trader_search':
+      return 'trader_search'
     case 'traders':
       return 'traders'
     case 'merchants':
@@ -381,7 +387,8 @@ async function runSelectedNoiseCleanup() {
           <USelect
             v-model="bulkCategory"
             :items="[
-              { label: 'Трейдеры / Поиск трейдеров', value: 'traders' },
+              { label: 'Поиск трейдеров', value: 'trader_search' },
+              { label: 'Трейдеры', value: 'traders' },
               { label: 'Мерчанты', value: 'merchants' },
               { label: 'Предложения от ПС', value: 'ps_offers' },
               { label: 'Шум', value: 'noise' }

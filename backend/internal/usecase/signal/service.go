@@ -506,7 +506,7 @@ func isLeadTabSignal(dto DTO) bool {
 		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(dto.SemanticCategory)) {
-	case "traders", "merchants", "ps_offers":
+	case "trader_search", "traders", "merchants", "ps_offers":
 		return true
 	default:
 		return false
@@ -515,6 +515,8 @@ func isLeadTabSignal(dto DTO) bool {
 
 func mapDirectionToCategory(direction string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(direction)) {
+	case "trader_search", "search_trader", "search_traders":
+		return "trader_search", true
 	case "trader", "traders":
 		return "traders", true
 	case "merchant", "merchants", "merch":
@@ -545,7 +547,7 @@ func assignCategoryScores(dto *DTO) {
 	if dto.SemanticDirection != nil {
 		if category, ok := mapDirectionToCategory(*dto.SemanticDirection); ok {
 			switch category {
-			case "traders":
+			case "trader_search", "traders":
 				dto.TraderScore = score
 				dto.NoiseScore = clamp01(1 - score)
 			case "merchants":
@@ -571,6 +573,8 @@ func assignCategoryScores(dto *DTO) {
 
 func normalizeCategory(category string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(category)) {
+	case "trader_search", "search_trader", "search_traders":
+		return "trader_search", true
 	case "traders", "trader":
 		return "traders", true
 	case "merchant", "merchants", "merch":
@@ -588,6 +592,8 @@ func normalizeCategory(category string) (string, bool) {
 
 func categoryToDirection(category string) string {
 	switch category {
+	case "trader_search":
+		return "trader_search"
 	case "traders":
 		return "trader"
 	case "merchants":
@@ -626,6 +632,8 @@ func (s *Service) categoryThreshold(ctx context.Context, category string) float6
 	}
 
 	switch category {
+	case "trader_search":
+		return s.settings.GetFloat(ctx, "trader_threshold", 0.60)
 	case "traders":
 		return s.settings.GetFloat(ctx, "trader_threshold", 0.60)
 	case "merchants":
@@ -737,6 +745,8 @@ func suggestSemanticFlags(text, category, direction string) []string {
 	switch category {
 	case "noise":
 		add("noise")
+	case "trader_search":
+		add("trader_search")
 	case "traders":
 		add("trader")
 	case "merchants":

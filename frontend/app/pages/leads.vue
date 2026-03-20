@@ -40,7 +40,7 @@ const columnVisibility = ref<Record<string, boolean>>({
   geo: false
 })
 const rowSelection = ref({})
-const categoryFilter = ref<'all' | 'traders' | 'merchants' | 'ps_offers'>('all')
+const categoryFilter = ref<'all' | 'trader_search' | 'traders' | 'merchants' | 'ps_offers'>('all')
 const selectedChat = ref('all')
 const bulkLoading = ref(false)
 const bulkStatus = ref<LeadStatus>('qualified')
@@ -139,12 +139,14 @@ const statusLabel: Record<LeadStatus, string> = {
 }
 
 const categoryLabel: Record<string, string> = {
-  traders: 'Трейдеры / Поиск трейдеров',
+  trader_search: 'Поиск трейдеров',
+  traders: 'Трейдеры',
   merchants: 'Мерчанты',
   ps_offers: 'Предложения от ПС'
 }
 
 const categoryColor: Record<string, 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'info'> = {
+  trader_search: 'warning',
   traders: 'success',
   merchants: 'info',
   ps_offers: 'info'
@@ -538,7 +540,8 @@ function exportCSV() {
             v-model="categoryFilter"
             :items="[
               { label: 'Все категории', value: 'all' },
-              { label: 'Трейдеры / Поиск трейдеров', value: 'traders' },
+              { label: 'Поиск трейдеров', value: 'trader_search' },
+              { label: 'Трейдеры', value: 'traders' },
               { label: 'Мерчанты', value: 'merchants' },
               { label: 'Предложения от ПС', value: 'ps_offers' }
             ]"

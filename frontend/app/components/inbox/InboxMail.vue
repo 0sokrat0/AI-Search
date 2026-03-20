@@ -166,15 +166,18 @@ fetchLeadBrief(props.mail.leadId)
 
 const categoryLabel = computed(() => {
   switch (props.mail.category) {
-    case 'traders': return 'Трейдеры / Поиск трейдеров'
+    case 'trader_search': return 'Поиск трейдеров'
+    case 'traders': return 'Трейдеры'
     case 'merchants': return 'Мерчанты'
     case 'ps_offers': return 'Предложения от ПС'
     default: return 'Шум'
   }
 })
 
-const categoryColor = computed<'info' | 'primary' | 'error'>(() => {
+const categoryColor = computed<'info' | 'primary' | 'warning' | 'error'>(() => {
   switch (props.mail.category) {
+    case 'trader_search':
+      return 'warning'
     case 'traders':
     case 'merchants':
       return 'info'
@@ -218,6 +221,8 @@ const leadPipelineColor = computed<'success' | 'warning' | 'neutral'>(() => {
 
 const matchBarClass = computed(() => {
   switch (props.mail.category) {
+    case 'trader_search':
+      return 'bg-amber-500'
     case 'traders':
       return 'bg-emerald-500'
     case 'merchants':
@@ -278,7 +283,7 @@ const historyTimeline = computed<TimelineMessage[]>(() => {
   return items
 })
 
-async function sendCategoryFeedback(category: 'traders' | 'merchants' | 'ps_offers' | 'noise') {
+async function sendCategoryFeedback(category: 'trader_search' | 'traders' | 'merchants' | 'ps_offers' | 'noise') {
   categoryFeedbackLoading.value = true
   try {
     await $fetch(`/api/signals/${props.mail.signalId}/feedback`, {
@@ -653,7 +658,15 @@ function formatDateSafe(value?: string | null): string {
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <UButton
-            label="Трейдеры / Поиск трейдеров"
+            label="Поиск трейдеров"
+            color="warning"
+            variant="soft"
+            :loading="categoryFeedbackLoading"
+            :disabled="categoryFeedbackLoading"
+            @click="sendCategoryFeedback('trader_search')"
+          />
+          <UButton
+            label="Трейдеры"
             color="info"
             variant="soft"
             :loading="categoryFeedbackLoading"

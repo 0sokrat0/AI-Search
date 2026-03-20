@@ -366,7 +366,7 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 			"tenant_id":         tenantID,
 			"created_at":        bson.M{"$gte": from},
 			"status":            bson.M{"$ne": string(lead.StatusControversial)},
-			"semantic_category": bson.M{"$in": bson.A{"traders", "merchants", "ps_offers"}},
+			"semantic_category": bson.M{"$in": bson.A{"trader_search", "traders", "merchants", "ps_offers"}},
 		}}},
 		{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: bson.D{
@@ -410,7 +410,7 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 			seriesMap[row.ID.Day] = bucket
 		}
 		switch row.ID.Category {
-		case "traders":
+		case "trader_search", "traders":
 			bucket.Traders += row.Count
 		case "merchants":
 			bucket.Merchants += row.Count
@@ -434,7 +434,7 @@ func (r *mongoRepository) GetStats(ctx context.Context, tenantID string, days in
 
 func accumulateCategoryDistribution(target *lead.CategoryDistribution, category string, count int64) {
 	switch category {
-	case "traders":
+	case "trader_search", "traders":
 		target.Traders += count
 	case "merchants":
 		target.Merchants += count
@@ -486,6 +486,8 @@ func buildFilter(tenantID string, f lead.ListFilter) bson.M {
 		switch strings.ToLower(strings.TrimSpace(*f.SemanticCategory)) {
 		case "merchant", "merchants", "merch", "processing_request", "processing_requests", "processing":
 			q["semantic_category"] = "merchants"
+		case "trader_search", "search_trader", "search_traders":
+			q["semantic_category"] = "trader_search"
 		case "trader", "traders":
 			q["semantic_category"] = "traders"
 		case "ps_offer", "ps_offers", "offer", "offers":
@@ -500,6 +502,8 @@ func buildFilter(tenantID string, f lead.ListFilter) bson.M {
 		switch strings.ToLower(strings.TrimSpace(*f.SemanticDirection)) {
 		case "merchant", "merchants", "merch", "processing_request", "processing_requests", "processing":
 			q["semantic_direction"] = bson.M{"$in": bson.A{"merchant", "merchants"}}
+		case "trader_search", "search_trader", "search_traders":
+			q["semantic_direction"] = bson.M{"$in": bson.A{"trader_search"}}
 		case "trader", "traders":
 			q["semantic_direction"] = bson.M{"$in": bson.A{"trader", "traders"}}
 		case "ps_offer", "ps_offers", "offer", "offers":

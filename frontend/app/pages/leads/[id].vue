@@ -39,7 +39,8 @@ const companyName = computed(() => {
 
 const categoryLabel: Record<string, string> = {
   leads: 'Лид',
-  traders: 'Трейдеры / Поиск трейдеров',
+  trader_search: 'Поиск трейдеров',
+  traders: 'Трейдеры',
   merchants: 'Мерчанты',
   ps_offers: 'Предложения от ПС',
   noise: 'Шум'
@@ -47,6 +48,7 @@ const categoryLabel: Record<string, string> = {
 
 const categoryColor: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'neutral'> = {
   leads: 'primary',
+  trader_search: 'warning',
   traders: 'success',
   merchants: 'info',
   ps_offers: 'info',
@@ -55,7 +57,8 @@ const categoryColor: Record<string, 'primary' | 'success' | 'warning' | 'info' |
 
 const categorySelectItems = [
   { label: 'Лид', value: 'leads' },
-  { label: 'Трейдеры / Поиск трейдеров', value: 'traders' },
+  { label: 'Поиск трейдеров', value: 'trader_search' },
+  { label: 'Трейдеры', value: 'traders' },
   { label: 'Мерчанты', value: 'merchants' },
   { label: 'Предложения от ПС', value: 'ps_offers' },
   { label: 'Шум / мусор', value: 'noise' }
@@ -92,6 +95,8 @@ const qualificationSourceLabel: Record<string, string> = {
 
 function shortCategoryLabel(category?: string | null): string {
   switch (String(category || '').toLowerCase()) {
+    case 'trader_search':
+      return 'Поиск трейдеров'
     case 'traders':
       return 'Трейдеры'
     case 'merchants':
@@ -109,6 +114,8 @@ const leadScorePercent = computed(() => Math.min(Math.round((lead.value?.score ?
 const leadScoreTitle = computed(() => `${shortCategoryLabel(lead.value?.semanticCategory)} ${leadScorePercent.value}%`)
 const leadMatchBarClass = computed(() => {
   switch (String(lead.value?.semanticCategory || '').toLowerCase()) {
+    case 'trader_search':
+      return 'bg-amber-500'
     case 'traders':
       return 'bg-emerald-500'
     case 'merchants':

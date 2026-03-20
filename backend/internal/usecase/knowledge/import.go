@@ -17,12 +17,13 @@ type ImportService struct {
 }
 
 type ImportResult struct {
-	FileName  string `json:"fileName"`
-	Imported  int    `json:"imported"`
-	Merchants int    `json:"merchants"`
-	PSOffers  int    `json:"psOffers"`
-	Traders   int    `json:"traders"`
-	Noise     int    `json:"noise"`
+	FileName     string `json:"fileName"`
+	Imported     int    `json:"imported"`
+	Merchants    int    `json:"merchants"`
+	PSOffers     int    `json:"psOffers"`
+	TraderSearch int    `json:"traderSearch"`
+	Traders      int    `json:"traders"`
+	Noise        int    `json:"noise"`
 }
 
 type importRow struct {
@@ -78,6 +79,8 @@ func (s *ImportService) ImportCSV(ctx context.Context, fileName, content string)
 				result.Merchants++
 			case "ps_offer":
 				result.PSOffers++
+			case "trader_search":
+				result.TraderSearch++
 			case "trader":
 				result.Traders++
 			case "noise":
@@ -184,6 +187,8 @@ func normalizeCategory(raw string) (direction string, isLead bool, ok bool) {
 		return "merchant", true, true
 	case "ps_offers", "ps_offer", "offer":
 		return "ps_offer", true, true
+	case "trader_search", "search_trader", "search_traders", "looking_for_trader":
+		return "trader_search", true, true
 	case "traders", "trader":
 		return "trader", true, true
 	case "noise", "negative", "spam":

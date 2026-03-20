@@ -56,7 +56,7 @@ export interface Mail {
   similarityScore?: number | null
   classifiedAsLead?: boolean | null
   semanticDirection?: string | null
-  semanticCategory?: 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
+  semanticCategory?: 'trader_search' | 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
   classificationReason?: string | null
   traderScore?: number | null
   merchantScore?: number | null
@@ -74,7 +74,7 @@ export interface Mail {
   otherChatsCount: number
   showMultiAccountBadges?: boolean
   semanticFlags?: string[]
-  category?: 'traders' | 'merchants' | 'ps_offers' | 'noise'
+  category?: 'trader_search' | 'traders' | 'merchants' | 'ps_offers' | 'noise'
   categoryReason?: string
 }
 
@@ -90,7 +90,7 @@ export interface Lead {
   chatTitle: string
   text?: string
   semanticDirection?: string
-  semanticCategory?: 'leads' | 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
+  semanticCategory?: 'leads' | 'trader_search' | 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
   merchantId: string
   companyId?: string
   company?: string
@@ -121,7 +121,7 @@ export interface Signal {
   score?: number
   isLead?: boolean
   semanticDirection?: string
-  semanticCategory?: 'leads' | 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
+  semanticCategory?: 'leads' | 'trader_search' | 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
   categoryAssignedAt?: string
 }
 
@@ -144,7 +144,7 @@ export interface SignalItem {
   similarityScore?: number | null
   classifiedAsLead?: boolean | null
   semanticDirection?: string | null
-  semanticCategory?: 'leads' | 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
+  semanticCategory?: 'leads' | 'trader_search' | 'traders' | 'merchants' | 'ps_offers' | 'noise' | string
   classificationReason?: string | null
   traderScore?: number | null
   merchantScore?: number | null
@@ -263,6 +263,7 @@ export interface KnowledgeImportResult {
   imported: number
   merchants: number
   psOffers: number
+  traderSearch: number
   traders: number
   noise: number
 }

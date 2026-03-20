@@ -157,6 +157,8 @@ func newSieve(cfg *config.Config, settingsStore *settings_store.Store, qdrantCli
 		return time.Duration(get("sender_window_seconds", 60)) * time.Second
 	}).WithCategoryThresholds(func(category string) float32 {
 		switch category {
+		case "trader_search":
+			return get("trader_threshold", 0.60)
 		case "traders":
 			return get("trader_threshold", 0.60)
 		case "merchants":

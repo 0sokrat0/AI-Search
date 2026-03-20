@@ -320,6 +320,8 @@ func directionToCategory(direction string) string {
 	switch {
 	case direction == "":
 		return ""
+	case containsAnyFold(direction, "trader_search", "search_trader", "ищу трейдера", "поиск трейдера"):
+		return "trader_search"
 	case containsAnyFold(direction, "merchant", "merch", "мерч"):
 		return "merchants"
 	case containsAnyFold(direction, "trader", "трейдер", "buyer", "арбитраж"):

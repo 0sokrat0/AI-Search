@@ -130,6 +130,8 @@ func normalizeSemanticCategory(category string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(category)) {
 	case "merchant", "merchants", "merch", "processing_request", "processing_requests", "processing":
 		return "merchants", true
+	case "trader_search", "search_trader", "search_traders":
+		return "trader_search", true
 	case "trader", "traders":
 		return "traders", true
 	case "ps_offer", "ps_offers", "offer", "offers":
@@ -319,6 +321,8 @@ func semanticDirectionToCategory(direction string) string {
 		return "leads"
 	}
 	switch strings.ToLower(strings.TrimSpace(direction)) {
+	case "trader_search", "search_trader", "search_traders":
+		return "trader_search"
 	case "traders", "trader":
 		return "traders"
 	case "merchant", "merchants", "merch":
@@ -336,6 +340,8 @@ func semanticDirectionToCategory(direction string) string {
 
 func categoryToSemanticDirection(category string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(category)) {
+	case "trader_search", "search_trader", "search_traders":
+		return "trader_search", true
 	case "traders", "trader":
 		return "traders", true
 	case "merchant", "merchants", "merch":

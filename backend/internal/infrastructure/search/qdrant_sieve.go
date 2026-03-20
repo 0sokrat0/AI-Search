@@ -23,18 +23,20 @@ const (
 	payloadSemanticDirectionKey = "semantic_direction"
 	payloadSemanticFlagsKey     = "semantic_flags"
 
-	directionMerchant = "merchant"
-	directionTrader   = "trader"
-	directionPSOffer  = "ps_offer"
-	directionNoise    = "noise"
+	directionMerchant     = "merchant"
+	directionTraderSearch = "trader_search"
+	directionTrader       = "trader"
+	directionPSOffer      = "ps_offer"
+	directionNoise        = "noise"
 
-	categoryMerchants = "merchants"
-	categoryTraders   = "traders"
-	categoryPSOffers  = "ps_offers"
-	categoryNoise     = "noise"
+	categoryMerchants    = "merchants"
+	categoryTraderSearch = "trader_search"
+	categoryTraders      = "traders"
+	categoryPSOffers     = "ps_offers"
+	categoryNoise        = "noise"
 )
 
-var orderedLeadCategories = []string{categoryTraders, categoryMerchants, categoryPSOffers}
+var orderedLeadCategories = []string{categoryTraderSearch, categoryTraders, categoryMerchants, categoryPSOffers}
 
 type QdrantSieve struct {
 	embedder            embeddings.Embedder
@@ -152,12 +154,20 @@ func (s *QdrantSieve) detectLeadMeta(ctx context.Context, text string) (detectio
 		strings.Contains(lower, "платежка") || strings.Contains(lower, "эквайринг")
 
 	// Force/Boost Trader detection
-	isTraderHint := strings.Contains(lower, "трейдер") || strings.Contains(lower, "trader") ||
-		strings.Contains(lower, "ищу трейдера") || strings.Contains(lower, "search trader")
+	isTraderSearchHint := strings.Contains(lower, "ищу трейдера") ||
+		strings.Contains(lower, "ищем трейдера") ||
+		strings.Contains(lower, "нужен трейдер") ||
+		strings.Contains(lower, "looking for trader") ||
+		strings.Contains(lower, "search trader")
+	isTraderHint := strings.Contains(lower, "трейдер") || strings.Contains(lower, "trader")
 
 	if isMerchantHint && (bestCategory == "" || bestCategory == categoryNoise) {
 		bestCategory = categoryMerchants
 		bestDirection = directionMerchant
+		bestScore = 0.9
+	} else if isTraderSearchHint && (bestCategory == "" || bestCategory == categoryNoise) {
+		bestCategory = categoryTraderSearch
+		bestDirection = directionTraderSearch
 		bestScore = 0.9
 	} else if isTraderHint && (bestCategory == "" || bestCategory == categoryNoise) {
 		bestCategory = categoryTraders
@@ -592,6 +602,8 @@ func normalizeDirection(direction string) string {
 		return ""
 	case "merchant", "merchants", "merch":
 		return directionMerchant
+	case "trader_search", "search_trader", "search_traders", "looking_for_trader":
+		return directionTraderSearch
 	case "trader", "traders":
 		return directionTrader
 	case "processing_request", "processing_requests", "request_processing":
@@ -609,6 +621,8 @@ func directionToCategory(direction string) string {
 	switch normalizeDirection(direction) {
 	case directionMerchant:
 		return categoryMerchants
+	case directionTraderSearch:
+		return categoryTraderSearch
 	case directionTrader:
 		return categoryTraders
 	case directionPSOffer:

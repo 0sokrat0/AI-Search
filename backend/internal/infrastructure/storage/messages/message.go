@@ -537,7 +537,7 @@ func (r *mongoRepository) GetChartData(ctx context.Context, tenantID string, fro
 			}}},
 			{Key: "traders", Value: bson.M{"$sum": bson.M{
 				"$cond": bson.A{
-					bson.M{"$in": bson.A{"$semantic_direction", bson.A{"trader", "traders"}}},
+					bson.M{"$in": bson.A{"$semantic_direction", bson.A{"trader_search", "trader", "traders"}}},
 					1, 0,
 				},
 			}}},

@@ -166,11 +166,14 @@ function openLead(id: string) {
   router.push(`/leads/${id}`)
 }
 
-function buildContactHref(raw?: string | null): string {
+function buildContactHref(raw?: string | null, senderTelegramId?: number | null): string {
   const value = String(raw || '').trim()
+  if (!value && senderTelegramId) return `tg://user?id=${senderTelegramId}`
   if (!value) return ''
   if (value.startsWith('@')) return `https://t.me/${value.slice(1)}`
   if (value.includes('@')) return `mailto:${value}`
+  if (/^\d+$/.test(value)) return `tg://user?id=${value}`
+  if (senderTelegramId) return `tg://user?id=${senderTelegramId}`
   return ''
 }
 
@@ -291,7 +294,7 @@ const columns: TableColumn<GroupedLead>[] = [
     header: 'Контакт',
     cell: ({ row }) => {
       const contact = row.original.contact || '—'
-      const href = buildContactHref(row.original.contact)
+      const href = buildContactHref(row.original.contact, row.original.senderTelegramId)
       return h('div', { class: 'flex items-center gap-1.5' }, [
         h('span', { class: 'truncate max-w-24 text-xs' }, contact),
         href

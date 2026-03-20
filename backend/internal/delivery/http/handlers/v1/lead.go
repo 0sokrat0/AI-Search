@@ -24,6 +24,7 @@ type leadDTO struct {
 	ID                  string   `json:"id"`
 	Name                string   `json:"name"`
 	Contact             string   `json:"contact"`
+	SenderTelegramID    int64    `json:"senderTelegramId"`
 	ChatTitle           string   `json:"chatTitle"`
 	Text                string   `json:"text"`
 	SourceMessageID     string   `json:"sourceMessageId"`
@@ -293,6 +294,7 @@ func toLeadDTO(l *lead.Lead) leadDTO {
 		ID:                  l.ID(),
 		Name:                name,
 		Contact:             contact,
+		SenderTelegramID:    l.SenderID(),
 		ChatTitle:           l.ChatTitle(),
 		Text:                l.Text(),
 		SourceMessageID:     l.MessageID(),

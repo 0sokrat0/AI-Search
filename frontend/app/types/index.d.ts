@@ -87,6 +87,7 @@ export interface Lead {
   id: string
   name: string // senderName
   contact: string // @username or senderID
+  senderTelegramId?: number
   avatar?: AvatarProps
   chatTitle: string
   text?: string

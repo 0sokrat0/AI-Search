@@ -19,10 +19,10 @@ const result = ref<KnowledgeImportResult | null>(null)
 const importState = ref<'idle' | 'ready' | 'uploading' | 'done'>('idle')
 const previewRows = ref<Array<{ text: string, category: string }>>([])
 const previewError = ref('')
-const formatHint = 'CSV с колонками text,category. Допустимые category: merchants, ps_offers, trader_search, traders, noise. Старый processing_requests тоже принимается и будет загружен как merchants.'
+const formatHint = 'Рекомендуемый CSV: колонки "целевое сообщение" и "тип лида". Старый формат text,category тоже поддерживается. Допустимые типы: merchants, ps_offers, trader_search, traders, noise.'
 const previewColumns = [
-  { id: 'text', accessorKey: 'text', header: 'Text' },
-  { id: 'category', accessorKey: 'category', header: 'Category' }
+  { id: 'text', accessorKey: 'text', header: 'Целевое сообщение' },
+  { id: 'category', accessorKey: 'category', header: 'Тип лида' }
 ]
 const resultRows = computed(() => {
   if (!result.value) return []
@@ -116,12 +116,12 @@ function parsePreviewRows(content: string) {
   }
 
   const delimiter = lines[0]?.includes(';') ? ';' : ','
-  const headers = splitCSVLine(lines[0] || '', delimiter).map(value => value.trim().toLowerCase())
-  const textIndex = headers.indexOf('text')
-  const categoryIndex = headers.indexOf('category')
+  const headers = splitCSVLine(lines[0] || '', delimiter).map(value => normalizeColumnName(value))
+  const textIndex = headers.findIndex(value => ['text', 'targetmessage', 'targetmsg', 'целевоесообщение', 'сообщение'].includes(value))
+  const categoryIndex = headers.findIndex(value => ['category', 'leadtype', 'leadkind', 'типлида', 'тип'].includes(value))
 
   if (textIndex === -1 || categoryIndex === -1) {
-    previewError.value = 'В файле должны быть колонки text и category.'
+    previewError.value = 'В файле должны быть колонки "целевое сообщение" и "тип лида" или старые text/category.'
     return []
   }
 
@@ -155,6 +155,13 @@ function splitCSVLine(line: string, delimiter: string) {
 
   values.push(current.trim())
   return values
+}
+
+function normalizeColumnName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '')
 }
 </script>
 

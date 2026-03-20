@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode"
 
 	"MRG/internal/infrastructure/search"
 )
@@ -113,15 +114,15 @@ func parseRows(content string) ([]importRow, error) {
 	textIdx := -1
 	categoryIdx := -1
 	for i, raw := range header {
-		switch strings.ToLower(strings.TrimSpace(raw)) {
-		case "text":
+		switch normalizeColumnName(raw) {
+		case "text", "targetmessage", "targetmsg", "целевоесообщение", "сообщение":
 			textIdx = i
-		case "category":
+		case "category", "leadtype", "leadkind", "типлида", "тип":
 			categoryIdx = i
 		}
 	}
 	if textIdx < 0 || categoryIdx < 0 {
-		return nil, fmt.Errorf("csv must contain text and category columns")
+		return nil, fmt.Errorf("csv must contain target message and lead type columns")
 	}
 
 	rows := make([]importRow, 0, 128)
@@ -139,7 +140,7 @@ func parseRows(content string) ([]importRow, error) {
 			continue
 		}
 		if len(record) <= textIdx || len(record) <= categoryIdx {
-			problems = append(problems, fmt.Sprintf("line %d: text or category is missing", line))
+			problems = append(problems, fmt.Sprintf("line %d: target message or lead type is missing", line))
 			continue
 		}
 
@@ -177,6 +178,16 @@ func detectDelimiter(content string) rune {
 		return ';'
 	}
 	return ','
+}
+
+func normalizeColumnName(raw string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(strings.TrimSpace(raw)) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func normalizeCategory(raw string) (direction string, isLead bool, ok bool) {

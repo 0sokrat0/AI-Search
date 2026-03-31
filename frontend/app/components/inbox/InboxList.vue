@@ -265,6 +265,14 @@ defineShortcuts({
             size="xs"
           />
           <UBadge
+            v-if="mail.isBroadcast"
+            icon="i-lucide-layers"
+            :label="`${mail.broadcastCount} источников`"
+            color="warning"
+            variant="subtle"
+            size="xs"
+          />
+          <UBadge
             v-if="mail.categoryAssignedAt"
             icon="i-lucide-clock"
             :label="formatListDate(mail.categoryAssignedAt)"

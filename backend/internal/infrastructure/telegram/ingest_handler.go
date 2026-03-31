@@ -201,6 +201,28 @@ func (h *IngestHandler) Handle(ctx context.Context, msgs []PendingMsg) error {
 		}
 
 		if classifiedAsLead != nil && *classifiedAsLead {
+			// Broadcast dedup: if identical text already exists in another lead, add as broadcast source
+			textHash := lead.TextHash(classifyText)
+			existing, findErr := h.leadRepo.FindByTextHash(ctx, h.tenantID, textHash)
+			if findErr == nil && existing != nil {
+				existing.AddBroadcastSource(lead.BroadcastSource{
+					SenderID:       m.SenderID,
+					SenderName:     m.SenderName,
+					SenderUsername: m.SenderUsername,
+					ChatID:         m.PeerID,
+					ChatTitle:      m.ChatTitle,
+					ReceivedAt:     time.Now(),
+				})
+				if err := h.leadRepo.Update(ctx, existing); err != nil {
+					h.log.Warn("update broadcast lead failed",
+						zap.Error(err),
+						zap.String("lead_id", existing.ID()),
+						zap.Int64("sender_id", m.SenderID),
+					)
+				}
+				continue
+			}
+
 			l, err := lead.Detect(h.tenantID, msg.ID(), msg.ChatID(), msg.ChatTitle(), msg.SenderID(), msg.SenderName(), msg.SenderUsername(), msg.Text(), *similarityScore)
 			if err == nil {
 

@@ -1,10 +1,29 @@
 package lead
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// TextHash returns a 32-char hex fingerprint of the given text (SHA-256, first 16 bytes).
+// Used to detect broadcast duplicates across different senders.
+func TextHash(text string) string {
+	h := sha256.Sum256([]byte(text))
+	return hex.EncodeToString(h[:16])
+}
+
+// BroadcastSource records one additional sender that sent an identical message.
+type BroadcastSource struct {
+	SenderID       int64
+	SenderName     string
+	SenderUsername string
+	ChatID         int64
+	ChatTitle      string
+	ReceivedAt     time.Time
+}
 
 type Lead struct {
 	id                  string
@@ -26,6 +45,7 @@ type Lead struct {
 	score               float64
 	userFeedback        *bool
 	categoryAssignedAt  *time.Time
+	broadcastSources    []BroadcastSource
 	createdAt           time.Time
 	updatedAt           time.Time
 }
@@ -58,6 +78,7 @@ func Detect(
 		semanticCategory: "leads",
 		status:           StatusDetected,
 		score:            score,
+		broadcastSources: []BroadcastSource{},
 		createdAt:        now,
 		updatedAt:        now,
 	}, nil
@@ -76,6 +97,7 @@ func Restore(
 	score float64,
 	userFeedback *bool,
 	categoryAssignedAt *time.Time,
+	broadcastSources []BroadcastSource,
 	createdAt, updatedAt time.Time,
 ) *Lead {
 	return &Lead{
@@ -98,6 +120,7 @@ func Restore(
 		score:               score,
 		userFeedback:        userFeedback,
 		categoryAssignedAt:  categoryAssignedAt,
+		broadcastSources:    ensureBroadcastSlice(broadcastSources),
 		createdAt:           createdAt,
 		updatedAt:           updatedAt,
 	}
@@ -217,3 +240,29 @@ func (l *Lead) setFeedback(good bool) {
 
 func (l *Lead) IsReviewed() bool { return l.userFeedback != nil }
 func (l *Lead) IsApproved() bool { return l.userFeedback != nil && *l.userFeedback }
+
+func (l *Lead) BroadcastSources() []BroadcastSource { return copyBroadcastSlice(l.broadcastSources) }
+func (l *Lead) IsBroadcast() bool                   { return len(l.broadcastSources) > 0 }
+func (l *Lead) BroadcastCount() int                 { return len(l.broadcastSources) + 1 }
+
+// AddBroadcastSource appends an additional sender that sent the same text.
+// Capped at 200 to avoid unbounded document growth.
+func (l *Lead) AddBroadcastSource(src BroadcastSource) {
+	if len(l.broadcastSources) < 200 {
+		l.broadcastSources = append(l.broadcastSources, src)
+		l.updatedAt = time.Now()
+	}
+}
+
+func ensureBroadcastSlice(s []BroadcastSource) []BroadcastSource {
+	if s == nil {
+		return []BroadcastSource{}
+	}
+	return s
+}
+
+func copyBroadcastSlice(s []BroadcastSource) []BroadcastSource {
+	out := make([]BroadcastSource, len(s))
+	copy(out, s)
+	return out
+}

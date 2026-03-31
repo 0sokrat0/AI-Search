@@ -2,9 +2,7 @@ package leads
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -23,17 +21,20 @@ type mongoRepository struct {
 
 func NewMongoRepository(db *mongo.Database) lead.Repository {
 	col := db.Collection("leads")
-	_, _ = col.Indexes().CreateOne(context.Background(), mongo.IndexModel{
-		Keys:    bson.D{{Key: "tenant_id", Value: 1}, {Key: "sender_id", Value: 1}, {Key: "text_hash", Value: 1}},
-		Options: options.Index().SetUnique(true).SetSparse(true),
+	_, _ = col.Indexes().CreateMany(context.Background(), []mongo.IndexModel{
+		// Unique per-sender dedup (prevents same sender creating duplicate leads)
+		{
+			Keys:    bson.D{{Key: "tenant_id", Value: 1}, {Key: "sender_id", Value: 1}, {Key: "text_hash", Value: 1}},
+			Options: options.Index().SetUnique(true).SetSparse(true),
+		},
+		// Fast broadcast lookup: find any lead with this text_hash in the tenant
+		{
+			Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "text_hash", Value: 1}},
+		},
 	})
 	return &mongoRepository{col: col}
 }
 
-func textHash(text string) string {
-	h := sha256.Sum256([]byte(text))
-	return hex.EncodeToString(h[:16])
-}
 
 func (r *mongoRepository) Save(ctx context.Context, l *lead.Lead) error {
 	doc := toDoc(l)
@@ -466,6 +467,23 @@ func accumulateCategoryDistribution(target *lead.CategoryDistribution, category 
 	}
 }
 
+func (r *mongoRepository) EnsureIndexes(ctx context.Context) error {
+	indices := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "tenant_id", Value: 1}, {Key: "sender_id", Value: 1}, {Key: "text_hash", Value: 1}},
+			Options: options.Index().SetUnique(true).SetSparse(true),
+		},
+		{
+			Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "created_at", Value: -1}, {Key: "_id", Value: -1}},
+		},
+		{
+			Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "status", Value: 1}, {Key: "user_feedback", Value: 1}},
+		},
+	}
+	_, err := r.col.Indexes().CreateMany(ctx, indices)
+	return err
+}
+
 func asFloat64(v any) (float64, bool) {
 	switch x := v.(type) {
 	case float64:
@@ -571,29 +589,39 @@ func decodeCursor(ctx context.Context, cur *mongo.Cursor) ([]*lead.Lead, error) 
 	return out, nil
 }
 
+type broadcastSourceDoc struct {
+	SenderID       int64     `bson:"sender_id"`
+	SenderName     string    `bson:"sender_name"`
+	SenderUsername string    `bson:"sender_username"`
+	ChatID         int64     `bson:"chat_id"`
+	ChatTitle      string    `bson:"chat_title"`
+	ReceivedAt     time.Time `bson:"received_at"`
+}
+
 type leadDoc struct {
-	ID                  string     `bson:"_id"`
-	TenantID            string     `bson:"tenant_id"`
-	MessageID           string     `bson:"message_id"`
-	ChatID              int64      `bson:"chat_id"`
-	ChatTitle           string     `bson:"chat_title"`
-	SenderID            int64      `bson:"sender_id"`
-	SenderName          string     `bson:"sender_name"`
-	SenderUsername      string     `bson:"sender_username"`
-	Text                string     `bson:"text"`
-	TextHash            string     `bson:"text_hash,omitempty"`
-	Geo                 []string   `bson:"geo"`
-	Products            []string   `bson:"products"`
-	SemanticDirection   string     `bson:"semantic_direction,omitempty"`
-	SemanticCategory    string     `bson:"semantic_category,omitempty"`
-	MerchantID          string     `bson:"merchant_id"`
-	Status              string     `bson:"status"`
-	QualificationSource string     `bson:"qualification_source,omitempty"`
-	Score               float64    `bson:"score"`
-	UserFeedback        *bool      `bson:"user_feedback"`
-	CategoryAssignedAt  *time.Time `bson:"category_assigned_at,omitempty"`
-	CreatedAt           time.Time  `bson:"created_at"`
-	UpdatedAt           time.Time  `bson:"updated_at"`
+	ID                  string                `bson:"_id"`
+	TenantID            string                `bson:"tenant_id"`
+	MessageID           string                `bson:"message_id"`
+	ChatID              int64                 `bson:"chat_id"`
+	ChatTitle           string                `bson:"chat_title"`
+	SenderID            int64                 `bson:"sender_id"`
+	SenderName          string                `bson:"sender_name"`
+	SenderUsername      string                `bson:"sender_username"`
+	Text                string                `bson:"text"`
+	TextHash            string                `bson:"text_hash,omitempty"`
+	Geo                 []string              `bson:"geo"`
+	Products            []string              `bson:"products"`
+	SemanticDirection   string                `bson:"semantic_direction,omitempty"`
+	SemanticCategory    string                `bson:"semantic_category,omitempty"`
+	MerchantID          string                `bson:"merchant_id"`
+	Status              string                `bson:"status"`
+	QualificationSource string                `bson:"qualification_source,omitempty"`
+	Score               float64               `bson:"score"`
+	UserFeedback        *bool                 `bson:"user_feedback"`
+	CategoryAssignedAt  *time.Time            `bson:"category_assigned_at,omitempty"`
+	BroadcastSources    []broadcastSourceDoc  `bson:"broadcast_sources,omitempty"`
+	CreatedAt           time.Time             `bson:"created_at"`
+	UpdatedAt           time.Time             `bson:"updated_at"`
 }
 
 func toDoc(l *lead.Lead) bson.M {
@@ -607,7 +635,7 @@ func toDoc(l *lead.Lead) bson.M {
 		"sender_name":          l.SenderName(),
 		"sender_username":      l.SenderUsername(),
 		"text":                 l.Text(),
-		"text_hash":            textHash(l.Text()),
+		"text_hash":            lead.TextHash(l.Text()),
 		"geo":                  l.Geo(),
 		"products":             l.Products(),
 		"semantic_direction":   l.SemanticDirection(),
@@ -618,6 +646,7 @@ func toDoc(l *lead.Lead) bson.M {
 		"score":                l.Score(),
 		"user_feedback":        l.UserFeedback(),
 		"category_assigned_at": l.CategoryAssignedAt(),
+		"broadcast_sources":    toBroadcastDocs(l.BroadcastSources()),
 		"updated_at":           l.UpdatedAt(),
 	}
 }
@@ -636,6 +665,49 @@ func fromDoc(d leadDoc) *lead.Lead {
 		d.Score,
 		d.UserFeedback,
 		d.CategoryAssignedAt,
+		fromBroadcastDocs(d.BroadcastSources),
 		d.CreatedAt, d.UpdatedAt,
 	)
+}
+
+func toBroadcastDocs(srcs []lead.BroadcastSource) []broadcastSourceDoc {
+	out := make([]broadcastSourceDoc, len(srcs))
+	for i, s := range srcs {
+		out[i] = broadcastSourceDoc{
+			SenderID:       s.SenderID,
+			SenderName:     s.SenderName,
+			SenderUsername: s.SenderUsername,
+			ChatID:         s.ChatID,
+			ChatTitle:      s.ChatTitle,
+			ReceivedAt:     s.ReceivedAt,
+		}
+	}
+	return out
+}
+
+func fromBroadcastDocs(docs []broadcastSourceDoc) []lead.BroadcastSource {
+	out := make([]lead.BroadcastSource, len(docs))
+	for i, d := range docs {
+		out[i] = lead.BroadcastSource{
+			SenderID:       d.SenderID,
+			SenderName:     d.SenderName,
+			SenderUsername: d.SenderUsername,
+			ChatID:         d.ChatID,
+			ChatTitle:      d.ChatTitle,
+			ReceivedAt:     d.ReceivedAt,
+		}
+	}
+	return out
+}
+
+func (r *mongoRepository) FindByTextHash(ctx context.Context, tenantID, textHash string) (*lead.Lead, error) {
+	var doc leadDoc
+	err := r.col.FindOne(ctx, bson.M{"tenant_id": tenantID, "text_hash": textHash}).Decode(&doc)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return fromDoc(doc), nil
 }

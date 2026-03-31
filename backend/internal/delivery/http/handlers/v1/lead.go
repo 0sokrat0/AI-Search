@@ -43,6 +43,8 @@ type leadDTO struct {
 	Products            []string `json:"products"`
 	UserFeedback        *bool    `json:"userFeedback"`
 	CategoryAssignedAt  string   `json:"categoryAssignedAt"`
+	IsBroadcast         bool     `json:"isBroadcast"`
+	BroadcastCount      int      `json:"broadcastCount"`
 	CreatedAt           string   `json:"createdAt"`
 	UpdatedAt           string   `json:"updatedAt"`
 }
@@ -313,6 +315,8 @@ func toLeadDTO(l *lead.Lead) leadDTO {
 		Products:            l.Products(),
 		UserFeedback:        l.UserFeedback(),
 		CategoryAssignedAt:  catAssignedAt,
+		IsBroadcast:         l.IsBroadcast(),
+		BroadcastCount:      l.BroadcastCount(),
 		CreatedAt:           l.CreatedAt().UTC().Format(time.RFC3339),
 		UpdatedAt:           l.UpdatedAt().UTC().Format(time.RFC3339),
 	}

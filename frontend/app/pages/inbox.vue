@@ -177,7 +177,23 @@ const mailboxSignals = computed<Mail[]>(() => {
   if (selectedChat.value !== 'all') {
     result = result.filter(m => m.from.location === selectedChat.value)
   }
-  return result
+  // Collapse identical text across different senders into the first occurrence
+  const seen = new Map<string, Mail>()
+  const countMap = new Map<string, number>()
+  for (const mail of result) {
+    const key = mail.body?.trim() || mail.signalId
+    if (!seen.has(key)) {
+      seen.set(key, { ...mail })
+      countMap.set(key, 1)
+    } else {
+      countMap.set(key, (countMap.get(key) ?? 1) + 1)
+    }
+  }
+  return Array.from(seen.values()).map((mail) => {
+    const key = mail.body?.trim() || mail.signalId
+    const count = countMap.get(key) ?? 1
+    return count > 1 ? { ...mail, isBroadcast: true, broadcastCount: count } : mail
+  })
 })
 
 const selectedSignal = ref<Mail | null>()

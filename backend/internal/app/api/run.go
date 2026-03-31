@@ -62,6 +62,10 @@ func Run(ctx context.Context, cfg *config.Config, log *zap.Logger) error {
 	contactRepo := contacts_repo.NewMongoRepository(db)
 	settingsStore := settings_store.New(db)
 
+	if err := messageRepo.EnsureIndexes(ctx); err != nil {
+		log.Warn("message repo indexes check failed", zap.Error(err))
+	}
+
 	if err := ensureSuperAdmin(ctx, cfg, userRepo, log); err != nil {
 		return fmt.Errorf("ensure super admin: %w", err)
 	}

@@ -77,6 +77,8 @@ export interface Mail {
   semanticFlags?: string[]
   category?: 'trader_search' | 'traders' | 'merchants' | 'ps_offers' | 'noise'
   categoryReason?: string
+  isBroadcast?: boolean
+  broadcastCount?: number
 }
 
 export type LeadStatus = 'new' | 'detected' | 'confirmed' | 'controversial' | 'false_positive' | 'contacted' | 'qualified' | 'converted' | 'rejected'
@@ -104,6 +106,8 @@ export interface Lead {
   products: string[]
   userFeedback: boolean | null
   categoryAssignedAt?: string
+  isBroadcast?: boolean
+  broadcastCount?: number
   signalsCount: number
   lastSeenAt: string
 }

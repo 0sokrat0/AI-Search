@@ -19,6 +19,7 @@ type Repository interface {
 	FindByMessageID(ctx context.Context, tenantID, messageID string) (*Lead, error)
 	FindByMessageIDs(ctx context.Context, tenantID string, messageIDs []string) (map[string]MessageLeadRef, error)
 	FindBySender(ctx context.Context, tenantID string, senderID int64, limit, offset int) ([]*Lead, error)
+	FindByTextHash(ctx context.Context, tenantID, textHash string) (*Lead, error)
 	List(ctx context.Context, tenantID string, f ListFilter) ([]*Lead, error)
 	ListPage(ctx context.Context, tenantID string, f ListFilter) (*ListPage, error)
 	Count(ctx context.Context, tenantID string, f ListFilter) (int64, error)

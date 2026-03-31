@@ -23,6 +23,7 @@ type Repository interface {
 	DeleteNoise(ctx context.Context, tenantID string, olderThan time.Duration, ids []string) (int64, error)
 	GetIngestStats(ctx context.Context, tenantID string, days int) (*IngestStats, error)
 	GetChartData(ctx context.Context, tenantID string, from, to time.Time) ([]ChartDayBucket, error)
+	EnsureIndexes(ctx context.Context) error
 }
 
 type ListFilter struct {

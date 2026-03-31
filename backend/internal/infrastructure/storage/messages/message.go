@@ -596,6 +596,31 @@ func (r *mongoRepository) GetChartData(ctx context.Context, tenantID string, fro
 	return buckets, nil
 }
 
+func (r *mongoRepository) EnsureIndexes(ctx context.Context) error {
+	indices := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "tenant_id", Value: 1}, {Key: "chat_id", Value: 1}, {Key: "message_id", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "created_at", Value: -1}, {Key: "_id", Value: -1}},
+		},
+		{
+			Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "sender_id", Value: 1}},
+		},
+		{
+			Keys: bson.D{
+				{Key: "tenant_id", Value: 1},
+				{Key: "classified_as_lead", Value: 1},
+				{Key: "is_ignored", Value: 1},
+				{Key: "similarity_score", Value: 1},
+			},
+		},
+	}
+	_, err := r.col.Indexes().CreateMany(ctx, indices)
+	return err
+}
+
 func toDoc(m *message.Message) bson.M {
 	return bson.M{
 		"tenant_id":          m.TenantID(),

@@ -2,7 +2,9 @@ package leads
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -20,13 +22,26 @@ type mongoRepository struct {
 }
 
 func NewMongoRepository(db *mongo.Database) lead.Repository {
-	return &mongoRepository{col: db.Collection("leads")}
+	col := db.Collection("leads")
+	_, _ = col.Indexes().CreateOne(context.Background(), mongo.IndexModel{
+		Keys:    bson.D{{Key: "tenant_id", Value: 1}, {Key: "sender_id", Value: 1}, {Key: "text_hash", Value: 1}},
+		Options: options.Index().SetUnique(true).SetSparse(true),
+	})
+	return &mongoRepository{col: col}
+}
+
+func textHash(text string) string {
+	h := sha256.Sum256([]byte(text))
+	return hex.EncodeToString(h[:16])
 }
 
 func (r *mongoRepository) Save(ctx context.Context, l *lead.Lead) error {
 	doc := toDoc(l)
 	doc["created_at"] = l.CreatedAt()
 	_, err := r.col.InsertOne(ctx, doc)
+	if mongo.IsDuplicateKeyError(err) {
+		return nil
+	}
 	return err
 }
 
@@ -566,6 +581,7 @@ type leadDoc struct {
 	SenderName          string     `bson:"sender_name"`
 	SenderUsername      string     `bson:"sender_username"`
 	Text                string     `bson:"text"`
+	TextHash            string     `bson:"text_hash,omitempty"`
 	Geo                 []string   `bson:"geo"`
 	Products            []string   `bson:"products"`
 	SemanticDirection   string     `bson:"semantic_direction,omitempty"`
@@ -591,6 +607,7 @@ func toDoc(l *lead.Lead) bson.M {
 		"sender_name":          l.SenderName(),
 		"sender_username":      l.SenderUsername(),
 		"text":                 l.Text(),
+		"text_hash":            textHash(l.Text()),
 		"geo":                  l.Geo(),
 		"products":             l.Products(),
 		"semantic_direction":   l.SemanticDirection(),

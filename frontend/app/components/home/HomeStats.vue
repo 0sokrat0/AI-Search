@@ -37,15 +37,6 @@ const { data: stats } = await useFetch<LeadStats>('/api/leads/stats', {
   })
 })
 
-function formatDistribution(distribution: LeadStats['approvedByCategory']) {
-  return [
-    `Поиск трейдеров ${distribution.traderSearch}`,
-    `Трейдеры ${distribution.traders}`,
-    `Мерчанты ${distribution.merchants}`,
-    `ПС ${distribution.psOffers}`,
-    distribution.other > 0 ? `Другое ${distribution.other}` : ''
-  ].filter(Boolean).join(' · ')
-}
 
 const cards = computed(() => {
   const s = stats.value ?? {
@@ -54,10 +45,7 @@ const cards = computed(() => {
     rejected: 0,
     aiQualified: 0,
     manualApproved: 0,
-    avgScoreRejected: 0,
-    detectedByCategory: { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0, other: 0 },
-    approvedByCategory: { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0, other: 0 },
-    rejectedByCategory: { traderSearch: 0, traders: 0, merchants: 0, psOffers: 0, other: 0 }
+    avgScoreRejected: 0
   }
   const totalDecisions = s.approved + s.rejected
   const approvalRate = totalDecisions > 0
@@ -68,19 +56,19 @@ const cards = computed(() => {
       title: 'Лидов в радаре',
       icon: 'i-lucide-radar',
       value: s.totalDetected,
-      sub: `${formatDistribution(s.detectedByCategory)} · за ${statsDays.value} дн.`
+      sub: `за ${statsDays.value} дн.`
     },
     {
       title: 'Лидов подтверждено',
       icon: 'i-lucide-badge-check',
       value: s.approved,
-      sub: totalDecisions > 0 ? `${approvalRate}% · ${formatDistribution(s.approvedByCategory)}` : formatDistribution(s.approvedByCategory)
+      sub: totalDecisions > 0 ? `${approvalRate}% от проверенных` : '—'
     },
     {
       title: 'Ложных срабатываний',
       icon: 'i-lucide-x-circle',
       value: s.rejected,
-      sub: s.rejected > 0 ? formatDistribution(s.rejectedByCategory) : 'нет'
+      sub: totalDecisions > 0 ? `${100 - approvalRate}% от проверенных` : 'нет'
     },
     {
       title: 'Квалифицировано ИИ',

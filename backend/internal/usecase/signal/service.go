@@ -55,11 +55,12 @@ func (s *Service) BindContact(ctx context.Context, in BindContactInput) error {
 
 func (s *Service) GetInbox(ctx context.Context, q InboxQuery) (*InboxPage, error) {
 	f := message.ListFilter{
-		Limit:    q.Limit,
-		Offset:   q.Offset,
-		Cursor:   q.Cursor,
-		FromDate: q.FromDate,
-		ToDate:   q.ToDate,
+		Limit:              q.Limit,
+		Offset:             q.Offset,
+		Cursor:             q.Cursor,
+		FromDate:           q.FromDate,
+		ToDate:             q.ToDate,
+		SemanticDirections: categoryToSemanticDirections(q.Category),
 	}
 	page, err := s.messageRepo.ListPage(ctx, q.TenantID, f)
 	if err != nil {
@@ -511,6 +512,26 @@ func isLeadTabSignal(dto DTO) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// categoryToSemanticDirections returns the list of semantic_direction values that
+// correspond to the given inbox category tab.  An empty slice means "no filter"
+// (i.e. the "all" category).
+func categoryToSemanticDirections(category string) []string {
+	switch strings.ToLower(strings.TrimSpace(category)) {
+	case "merchants":
+		return []string{"merchant", "merchants", "merch", "processing_request", "processing_requests"}
+	case "traders":
+		return []string{"trader", "traders"}
+	case "trader_search":
+		return []string{"trader_search", "search_trader", "search_traders"}
+	case "ps_offers":
+		return []string{"ps_offer", "ps_offers"}
+	case "noise":
+		return []string{"noise", "spam"}
+	default: // "all" or anything unrecognised — no direction filter
+		return nil
 	}
 }
 

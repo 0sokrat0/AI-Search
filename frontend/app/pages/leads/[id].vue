@@ -128,18 +128,15 @@ const leadMatchBarClass = computed(() => {
   }
 })
 
-function buildContactHref(raw?: string | null, senderTelegramId?: number | null): string {
+function buildContactHref(raw?: string | null): string {
   const value = String(raw || '').trim()
-  if (!value && senderTelegramId) return `tg://user?id=${senderTelegramId}`
   if (!value) return ''
   if (value.startsWith('@')) return `https://t.me/${value.slice(1)}`
   if (value.includes('@')) return `mailto:${value}`
-  if (/^\d+$/.test(value)) return `tg://user?id=${value}`
-  if (senderTelegramId) return `tg://user?id=${senderTelegramId}`
   return ''
 }
 
-const contactHref = computed(() => buildContactHref(lead.value?.contact, lead.value?.senderTelegramId))
+const contactHref = computed(() => buildContactHref(lead.value?.contact))
 
 function parseDateSafe(value?: string | null): Date | null {
   if (!value) return null

@@ -145,6 +145,16 @@ func (r *mongoRepository) ListPage(ctx context.Context, tenantID string, f messa
 		}
 		filter["created_at"] = dateQ
 	}
+	if len(f.SemanticDirections) > 0 {
+		dirs := make(bson.A, len(f.SemanticDirections))
+		for i, d := range f.SemanticDirections {
+			dirs[i] = d
+		}
+		filter["semantic_direction"] = bson.M{"$in": dirs}
+	}
+	if f.ClassifiedAsLead != nil {
+		filter["classified_as_lead"] = *f.ClassifiedAsLead
+	}
 	if cursor, err := decodeMessageCursor(f.Cursor); err == nil && cursor != nil {
 		filter["$or"] = bson.A{
 			bson.M{"created_at": bson.M{"$lt": cursor.CreatedAt}},

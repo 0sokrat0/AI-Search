@@ -220,17 +220,6 @@ const bestBusinessMatchTitle = computed(() => {
   return `${bestBusinessMatch.value.label} ${bestBusinessMatch.value.percent}%`
 })
 
-const leadPipelineLabel = computed(() => {
-  if (props.mail.category === 'noise') return ''
-  if (props.mail.leadId) return 'Прошёл в квалифицированные лиды'
-  return 'Категоризирован как сигнал, но не прошёл в лиды'
-})
-
-const leadPipelineColor = computed<'success' | 'warning' | 'neutral'>(() => {
-  if (props.mail.category === 'noise') return 'neutral'
-  if (props.mail.leadId) return 'success'
-  return 'warning'
-})
 
 const matchBarClass = computed(() => {
   switch (props.mail.category) {
@@ -436,13 +425,6 @@ function formatDateSafe(value?: string | null): string {
           v-if="sourceBadge"
           :label="sourceBadge.label"
           :color="sourceBadge.color"
-          variant="soft"
-          size="xs"
-        />
-        <UBadge
-          v-if="leadPipelineLabel"
-          :label="leadPipelineLabel"
-          :color="leadPipelineColor"
           variant="soft"
           size="xs"
         />

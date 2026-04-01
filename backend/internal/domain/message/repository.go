@@ -27,13 +27,15 @@ type Repository interface {
 }
 
 type ListFilter struct {
-	ChatID   *int64
-	SenderID *int64
-	FromDate *time.Time
-	ToDate   *time.Time
-	Limit    int
-	Offset   int
-	Cursor   string
+	ChatID             *int64
+	SenderID           *int64
+	FromDate           *time.Time
+	ToDate             *time.Time
+	Limit              int
+	Offset             int
+	Cursor             string
+	SemanticDirections []string // when non-empty, filter by semantic_direction $in
+	ClassifiedAsLead   *bool    // when non-nil, filter by classified_as_lead
 }
 
 type ListPage struct {

@@ -74,11 +74,19 @@ type leadBriefSignalDTO struct {
 	SemanticCategory  string  `json:"semanticCategory"`
 }
 
+type broadcastSourceDTO struct {
+	SenderName     string `json:"senderName"`
+	SenderUsername string `json:"senderUsername"`
+	ChatTitle      string `json:"chatTitle"`
+	ReceivedAt     string `json:"receivedAt"`
+}
+
 type leadBriefDTO struct {
-	Lead         leadDTO              `json:"lead"`
-	Signals      []leadBriefSignalDTO `json:"signals"`
-	SignalsCount int                  `json:"signalsCount"`
-	LastSeenAt   string               `json:"lastSeenAt"`
+	Lead             leadDTO              `json:"lead"`
+	Signals          []leadBriefSignalDTO `json:"signals"`
+	SignalsCount     int                  `json:"signalsCount"`
+	LastSeenAt       string               `json:"lastSeenAt"`
+	BroadcastSources []broadcastSourceDTO `json:"broadcastSources"`
 }
 
 type leadListPageDTO struct {
@@ -176,11 +184,22 @@ func (h *LeadHandler) GetLeadBrief(c *fiber.Ctx) error {
 		})
 	}
 
+	broadcastSources := make([]broadcastSourceDTO, 0, len(brief.Lead.BroadcastSources()))
+	for _, bs := range brief.Lead.BroadcastSources() {
+		broadcastSources = append(broadcastSources, broadcastSourceDTO{
+			SenderName:     bs.SenderName,
+			SenderUsername: bs.SenderUsername,
+			ChatTitle:      bs.ChatTitle,
+			ReceivedAt:     bs.ReceivedAt.UTC().Format(time.RFC3339),
+		})
+	}
+
 	return response.OK(c, leadBriefDTO{
-		Lead:         leadView,
-		Signals:      signals,
-		SignalsCount: brief.SignalsCount,
-		LastSeenAt:   brief.LastSeenAt.UTC().Format(time.RFC3339),
+		Lead:             leadView,
+		Signals:          signals,
+		SignalsCount:     brief.SignalsCount,
+		LastSeenAt:       brief.LastSeenAt.UTC().Format(time.RFC3339),
+		BroadcastSources: broadcastSources,
 	})
 }
 

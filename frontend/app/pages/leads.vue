@@ -281,7 +281,7 @@ const columns: TableColumn<GroupedLead>[] = [
             ? h(UBadge, { color: 'neutral', variant: 'soft', size: 'xs' }, () => `×${count}`)
             : null,
           row.original.isBroadcast
-            ? h(UBadge, { color: 'warning', variant: 'subtle', size: 'xs', icon: 'i-lucide-layers' }, () => `${row.original.broadcastCount}`)
+            ? h(UBadge, { color: 'warning', variant: 'subtle', size: 'xs', icon: 'i-lucide-layers', title: 'Мультирассылка' }, () => '')
             : null
         ])
       ])

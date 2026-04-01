@@ -15,6 +15,7 @@ const { data: brief, status, refresh } = await useFetch<LeadBrief>(`/api/leads/$
 
 const lead = computed(() => (brief.value as LeadBrief | null)?.lead ?? null)
 const signals = computed(() => (brief.value as LeadBrief | null)?.signals ?? [])
+const broadcastSources = computed(() => (brief.value as LeadBrief | null)?.broadcastSources ?? [])
 const briefData = computed(() => brief.value as LeadBrief | null)
 
 const selectedCompanyId = ref<string>('')
@@ -653,6 +654,31 @@ watch(lead, (value) => {
                 {{ signal.text }}
               </p>
             </div>
+
+            <template v-if="broadcastSources.length">
+              <div class="border-t border-default pt-3">
+                <p class="text-xs text-muted mb-2">
+                  Также отправили этот же текст:
+                </p>
+                <div class="space-y-2">
+                  <div
+                    v-for="(src, i) in broadcastSources"
+                    :key="i"
+                    class="flex items-center justify-between text-sm"
+                  >
+                    <div class="flex items-center gap-2 min-w-0">
+                      <UIcon name="i-lucide-user" class="text-muted shrink-0 size-3.5" />
+                      <span class="font-medium truncate">{{ src.senderName || src.senderUsername || '—' }}</span>
+                      <span v-if="src.senderUsername" class="text-xs text-muted truncate">@{{ src.senderUsername }}</span>
+                      <span class="text-xs text-muted truncate">· {{ src.chatTitle }}</span>
+                    </div>
+                    <p class="text-xs text-muted shrink-0">
+                      {{ formatDateSafe(src.receivedAt) }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </UCard>
 

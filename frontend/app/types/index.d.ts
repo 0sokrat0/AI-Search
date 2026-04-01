@@ -132,11 +132,19 @@ export interface Signal {
   categoryAssignedAt?: string
 }
 
+export interface BroadcastSource {
+  senderName: string
+  senderUsername: string
+  chatTitle: string
+  receivedAt: string
+}
+
 export interface LeadBrief {
   lead: Lead
   signals: Signal[]
   signalsCount: number
   lastSeenAt: string
+  broadcastSources: BroadcastSource[]
 }
 
 export interface SignalItem {

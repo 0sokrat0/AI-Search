@@ -497,7 +497,16 @@ func matchInboxCategory(dto DTO, category string) bool {
 	if category == "all" {
 		return true
 	}
-	return strings.EqualFold(strings.TrimSpace(dto.SemanticCategory), category)
+	if strings.EqualFold(strings.TrimSpace(dto.SemanticCategory), category) {
+		return true
+	}
+	// Also match by raw semantic_direction even if classified as noise due to low score
+	if dto.SemanticDirection != nil {
+		if dirCategory, ok := mapDirectionToCategory(*dto.SemanticDirection); ok {
+			return strings.EqualFold(dirCategory, category)
+		}
+	}
+	return false
 }
 
 func isLeadTabSignal(dto DTO) bool {

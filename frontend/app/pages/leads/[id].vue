@@ -41,6 +41,8 @@ const companyName = computed(() => {
 const isOwnedByCurrentUser = computed(() => Boolean(lead.value?.ownerId) && lead.value?.ownerId === auth.currentUser?.id)
 const isOwnedByOther = computed(() => Boolean(lead.value?.ownerId) && lead.value?.ownerId !== auth.currentUser?.id)
 const ownerLabel = computed(() => String(lead.value?.ownerName || '').trim() || 'Свободен')
+const contactOwnerLabel = computed(() => String(lead.value?.contactOwnerName || '').trim() || 'Свободен')
+const companyOwnerLabel = computed(() => String(lead.value?.companyOwnerName || '').trim() || 'Свободен')
 
 const categoryLabel: Record<string, string> = {
   leads: 'Лид',
@@ -441,6 +443,16 @@ watch(lead, (value) => {
                     size="xs"
                   />
                 </div>
+                <div class="mt-2">
+                  <UBadge
+                    :color="lead.contactOwnerId ? (lead.contactOwnerId === auth.currentUser?.id ? 'success' : 'warning') : 'neutral'"
+                    variant="soft"
+                    size="sm"
+                    icon="i-lucide-user-check"
+                  >
+                    Telegram-контакт: {{ contactOwnerLabel }}
+                  </UBadge>
+                </div>
               </div>
               <div>
                 <p class="text-xs text-muted">
@@ -537,6 +549,14 @@ watch(lead, (value) => {
               >
                 {{ companyName }}
               </UBadge>
+              <UBadge
+                :color="lead.companyOwnerId ? (lead.companyOwnerId === auth.currentUser?.id ? 'success' : 'warning') : 'neutral'"
+                icon="i-lucide-user-check"
+                variant="soft"
+                size="sm"
+              >
+                {{ companyOwnerLabel }}
+              </UBadge>
             </div>
           </template>
 
@@ -545,7 +565,7 @@ watch(lead, (value) => {
               {{ companyName !== '—' ? companyName : 'Компания пока не привязана' }}
             </p>
             <p class="text-xs text-muted">
-              Здесь показывается текущая компания, если сигнал уже к ней привязан.
+              Здесь показывается текущая компания и её ответственный, если лид уже к ней привязан.
             </p>
           </div>
         </UCard>

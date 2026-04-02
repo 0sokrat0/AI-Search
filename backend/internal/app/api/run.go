@@ -72,7 +72,7 @@ func Run(ctx context.Context, cfg *config.Config, log *zap.Logger) error {
 
 	authUC := auth.NewAuthUseCase(userRepo, cfg)
 	userUC := user_usecase.NewUserUseCase(userRepo)
-	leadUC := lead_usecase.New(leadRepo, messageRepo, contactRepo)
+	leadUC := lead_usecase.New(leadRepo, messageRepo, contactRepo, settingsStore)
 	settingsUC := settings_usecase.New(settingsStore, messageRepo)
 
 	sieve := newSieve(cfg, settingsStore, qdrantClient)

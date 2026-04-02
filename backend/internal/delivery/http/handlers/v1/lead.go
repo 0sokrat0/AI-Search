@@ -41,6 +41,10 @@ type leadDTO struct {
 	OwnerID             string   `json:"ownerId"`
 	OwnerName           string   `json:"ownerName"`
 	OwnerAssignedAt     string   `json:"ownerAssignedAt"`
+	ContactOwnerID      string   `json:"contactOwnerId"`
+	ContactOwnerName    string   `json:"contactOwnerName"`
+	CompanyOwnerID      string   `json:"companyOwnerId"`
+	CompanyOwnerName    string   `json:"companyOwnerName"`
 	Status              string   `json:"status"`
 	QualificationSource string   `json:"qualificationSource"`
 	Priority            string   `json:"priority"`
@@ -174,6 +178,10 @@ func (h *LeadHandler) GetLeadBrief(c *fiber.Ctx) error {
 	}
 
 	leadView := toLeadDTO(brief.Lead)
+	leadView.ContactOwnerID = brief.ContactOwnerID
+	leadView.ContactOwnerName = brief.ContactOwnerName
+	leadView.CompanyOwnerID = brief.CompanyOwnerID
+	leadView.CompanyOwnerName = brief.CompanyOwnerName
 	signals := make([]leadBriefSignalDTO, 0, len(brief.Signals))
 	for _, s := range brief.Signals {
 		signals = append(signals, leadBriefSignalDTO{

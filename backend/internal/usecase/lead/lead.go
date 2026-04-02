@@ -2,6 +2,7 @@ package lead
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"MRG/internal/domain/contact"
 	"MRG/internal/domain/lead"
 	"MRG/internal/domain/message"
+	settings_store "MRG/internal/infrastructure/storage/settings"
 )
 
 type sieveMetaTeacher interface {
@@ -19,11 +21,12 @@ type UseCase struct {
 	leads    lead.Repository
 	messages message.Repository
 	contacts contact.Repository
+	settings *settings_store.Store
 	sieve    lead.Sieve
 }
 
-func New(leads lead.Repository, messages message.Repository, contacts contact.Repository) *UseCase {
-	return &UseCase{leads: leads, messages: messages, contacts: contacts}
+func New(leads lead.Repository, messages message.Repository, contacts contact.Repository, settings *settings_store.Store) *UseCase {
+	return &UseCase{leads: leads, messages: messages, contacts: contacts, settings: settings}
 }
 
 func (uc *UseCase) WithSieve(sieve lead.Sieve) *UseCase {
@@ -136,7 +139,15 @@ func (uc *UseCase) SetStatus(ctx context.Context, tenantID, id string, to lead.S
 }
 
 func (uc *UseCase) ClaimOwnership(ctx context.Context, tenantID, id, ownerID, ownerName string) (*lead.Lead, error) {
-	return uc.leads.ClaimOwnership(ctx, tenantID, id, ownerID, ownerName)
+	l, err := uc.leads.ClaimOwnership(ctx, tenantID, id, ownerID, ownerName)
+	if err != nil {
+		return nil, err
+	}
+	_ = uc.claimContactOwnership(ctx, tenantID, l.SenderID(), l.SenderName(), l.SenderUsername(), l.MerchantID(), ownerID, ownerName)
+	if strings.TrimSpace(l.MerchantID()) != "" {
+		_ = uc.claimCompanyOwnership(ctx, l.MerchantID(), ownerID, ownerName)
+	}
+	return l, nil
 }
 
 func (uc *UseCase) ReleaseOwnership(ctx context.Context, tenantID, id, ownerID string) (*lead.Lead, error) {
@@ -158,6 +169,9 @@ func (uc *UseCase) SetMerchant(ctx context.Context, tenantID, id, merchantID str
 
 	if err := uc.bindSenderToMerchant(ctx, tenantID, l.SenderID(), l.SenderName(), l.SenderUsername(), merchantID); err != nil {
 		return l, nil
+	}
+	if l.OwnerID() != "" && strings.TrimSpace(merchantID) != "" {
+		_ = uc.claimCompanyOwnership(ctx, merchantID, l.OwnerID(), l.OwnerName())
 	}
 
 	go func() {
@@ -212,6 +226,31 @@ func (uc *UseCase) bindSenderToMerchant(ctx context.Context, tenantID string, se
 	return uc.contacts.Update(ctx, c)
 }
 
+func (uc *UseCase) claimContactOwnership(ctx context.Context, tenantID string, senderID int64, name, username, merchantID, ownerID, ownerName string) error {
+	c, err := uc.contacts.FindBySenderID(ctx, tenantID, senderID)
+	if err != nil {
+		return err
+	}
+
+	if c == nil {
+		c = contact.New(tenantID, senderID, name, username)
+		if merchantID != "" {
+			c.SetMerchant(merchantID)
+		}
+		c.AssignOwner(ownerID, ownerName)
+		return uc.contacts.Save(ctx, c)
+	}
+
+	c.UpdateInfo(name, username)
+	if merchantID != "" {
+		c.SetMerchant(merchantID)
+	}
+	if c.OwnerID() == "" || c.OwnerID() == ownerID {
+		c.AssignOwner(ownerID, ownerName)
+	}
+	return uc.contacts.Update(ctx, c)
+}
+
 func (uc *UseCase) Delete(ctx context.Context, tenantID, id string) error {
 	l, err := uc.leads.FindByID(ctx, tenantID, id)
 	if err != nil {
@@ -236,10 +275,22 @@ type Signal struct {
 }
 
 type Brief struct {
-	Lead         *lead.Lead `json:"lead"`
-	Signals      []Signal   `json:"signals"`
-	SignalsCount int        `json:"signals_count"`
-	LastSeenAt   time.Time  `json:"last_seen_at"`
+	Lead             *lead.Lead `json:"lead"`
+	Signals          []Signal   `json:"signals"`
+	SignalsCount     int        `json:"signals_count"`
+	LastSeenAt       time.Time  `json:"last_seen_at"`
+	ContactOwnerID   string     `json:"contact_owner_id"`
+	ContactOwnerName string     `json:"contact_owner_name"`
+	CompanyOwnerID   string     `json:"company_owner_id"`
+	CompanyOwnerName string     `json:"company_owner_name"`
+}
+
+type companyRecord struct {
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	OwnerID         string  `json:"ownerId,omitempty"`
+	OwnerName       string  `json:"ownerName,omitempty"`
+	OwnerAssignedAt *string `json:"ownerAssignedAt,omitempty"`
 }
 
 func (uc *UseCase) GetBrief(ctx context.Context, tenantID, id string) (*Brief, error) {
@@ -316,12 +367,72 @@ func (uc *UseCase) GetBrief(ctx context.Context, tenantID, id string) (*Brief, e
 		signals = signals[:20]
 	}
 
-	return &Brief{
+	brief := &Brief{
 		Lead:         l,
 		Signals:      signals,
 		SignalsCount: total,
 		LastSeenAt:   lastSeen,
-	}, nil
+	}
+	if uc.contacts != nil {
+		c, err := uc.contacts.FindBySenderID(ctx, tenantID, l.SenderID())
+		if err == nil && c != nil {
+			brief.ContactOwnerID = c.OwnerID()
+			brief.ContactOwnerName = c.OwnerName()
+		}
+	}
+	if uc.settings != nil && strings.TrimSpace(l.MerchantID()) != "" {
+		raw := strings.TrimSpace(uc.settings.GetString(ctx, "companies_json", ""))
+		if raw != "" {
+			var companies []companyRecord
+			if err := json.Unmarshal([]byte(raw), &companies); err == nil {
+				for _, company := range companies {
+					if company.ID == l.MerchantID() {
+						brief.CompanyOwnerID = company.OwnerID
+						brief.CompanyOwnerName = company.OwnerName
+						break
+					}
+				}
+			}
+		}
+	}
+	return brief, nil
+}
+
+func (uc *UseCase) claimCompanyOwnership(ctx context.Context, companyID, ownerID, ownerName string) error {
+	if uc.settings == nil || companyID == "" || ownerID == "" || ownerName == "" {
+		return nil
+	}
+	raw := strings.TrimSpace(uc.settings.GetString(ctx, "companies_json", ""))
+	if raw == "" {
+		return nil
+	}
+	var companies []companyRecord
+	if err := json.Unmarshal([]byte(raw), &companies); err != nil {
+		return err
+	}
+	changed := false
+	now := time.Now().UTC().Format(time.RFC3339)
+	for i := range companies {
+		if companies[i].ID != companyID {
+			continue
+		}
+		if companies[i].OwnerID != "" && companies[i].OwnerID != ownerID {
+			return nil
+		}
+		companies[i].OwnerID = ownerID
+		companies[i].OwnerName = ownerName
+		companies[i].OwnerAssignedAt = &now
+		changed = true
+		break
+	}
+	if !changed {
+		return nil
+	}
+	encoded, err := json.Marshal(companies)
+	if err != nil {
+		return err
+	}
+	return uc.settings.SetAll(ctx, map[string]string{"companies_json": string(encoded)})
 }
 
 func directionToCategory(direction string) string {

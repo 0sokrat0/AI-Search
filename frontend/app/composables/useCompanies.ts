@@ -1,6 +1,9 @@
 export interface Company {
   id: string
   name: string
+  ownerId?: string
+  ownerName?: string
+  ownerAssignedAt?: string
 }
 
 const SETTINGS_KEY = 'companies_json'

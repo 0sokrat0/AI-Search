@@ -43,29 +43,58 @@ func (r *mongoRepository) FindBySenderID(ctx context.Context, tenantID string, s
 	return fromDoc(doc), nil
 }
 
+func (r *mongoRepository) ClaimOwnership(ctx context.Context, tenantID string, senderID int64, ownerID, ownerName string) (*contact.Contact, error) {
+	_, err := r.col.UpdateOne(ctx, bson.M{
+		"tenant_id": tenantID,
+		"sender_id": senderID,
+		"$or": bson.A{
+			bson.M{"owner_id": bson.M{"$exists": false}},
+			bson.M{"owner_id": ""},
+			bson.M{"owner_id": ownerID},
+		},
+	}, bson.M{
+		"$set": bson.M{
+			"owner_id":          ownerID,
+			"owner_name":        ownerName,
+			"owner_assigned_at": time.Now().UTC(),
+			"updated_at":        time.Now().UTC(),
+		},
+	}, options.Update().SetUpsert(false))
+	if err != nil {
+		return nil, err
+	}
+	return r.FindBySenderID(ctx, tenantID, senderID)
+}
+
 type contactDoc struct {
-	TenantID       string    `bson:"tenant_id"`
-	SenderID       int64     `bson:"sender_id"`
-	SenderName     string    `bson:"sender_name"`
-	SenderUsername string    `bson:"sender_username"`
-	MerchantID     string    `bson:"merchant_id"`
-	IsTeamMember   bool      `bson:"is_team_member"`
-	IsSpam         bool      `bson:"is_spam,omitempty"`
-	CreatedAt      time.Time `bson:"created_at"`
-	UpdatedAt      time.Time `bson:"updated_at"`
+	TenantID        string     `bson:"tenant_id"`
+	SenderID        int64      `bson:"sender_id"`
+	SenderName      string     `bson:"sender_name"`
+	SenderUsername  string     `bson:"sender_username"`
+	MerchantID      string     `bson:"merchant_id"`
+	OwnerID         string     `bson:"owner_id,omitempty"`
+	OwnerName       string     `bson:"owner_name,omitempty"`
+	OwnerAssignedAt *time.Time `bson:"owner_assigned_at,omitempty"`
+	IsTeamMember    bool       `bson:"is_team_member"`
+	IsSpam          bool       `bson:"is_spam,omitempty"`
+	CreatedAt       time.Time  `bson:"created_at"`
+	UpdatedAt       time.Time  `bson:"updated_at"`
 }
 
 func toDoc(c *contact.Contact) contactDoc {
 	return contactDoc{
-		TenantID:       c.TenantID(),
-		SenderID:       c.SenderID(),
-		SenderName:     c.SenderName(),
-		SenderUsername: c.SenderUsername(),
-		MerchantID:     c.MerchantID(),
-		IsTeamMember:   c.IsTeamMember(),
-		IsSpam:         c.IsSpam(),
-		CreatedAt:      c.CreatedAt(),
-		UpdatedAt:      c.UpdatedAt(),
+		TenantID:        c.TenantID(),
+		SenderID:        c.SenderID(),
+		SenderName:      c.SenderName(),
+		SenderUsername:  c.SenderUsername(),
+		MerchantID:      c.MerchantID(),
+		OwnerID:         c.OwnerID(),
+		OwnerName:       c.OwnerName(),
+		OwnerAssignedAt: c.OwnerAssignedAt(),
+		IsTeamMember:    c.IsTeamMember(),
+		IsSpam:          c.IsSpam(),
+		CreatedAt:       c.CreatedAt(),
+		UpdatedAt:       c.UpdatedAt(),
 	}
 }
 
@@ -76,6 +105,9 @@ func fromDoc(d contactDoc) *contact.Contact {
 		d.SenderName,
 		d.SenderUsername,
 		d.MerchantID,
+		d.OwnerID,
+		d.OwnerName,
+		d.OwnerAssignedAt,
 		d.IsTeamMember,
 		d.IsSpam,
 		d.CreatedAt,

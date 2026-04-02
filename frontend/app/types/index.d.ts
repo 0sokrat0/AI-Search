@@ -101,6 +101,10 @@ export interface Lead {
   ownerId?: string
   ownerName?: string
   ownerAssignedAt?: string
+  contactOwnerId?: string
+  contactOwnerName?: string
+  companyOwnerId?: string
+  companyOwnerName?: string
   qualificationSource?: LeadQualificationSource | null
   status: LeadStatus
   priority: LeadPriority

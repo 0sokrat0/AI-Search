@@ -22,6 +22,9 @@ export default eventHandler(async (event) => {
         ...row,
         semanticDirection,
         semanticCategory,
+        ownerId: String(row.ownerId ?? ''),
+        ownerName: String(row.ownerName ?? ''),
+        ownerAssignedAt: String(row.ownerAssignedAt ?? ''),
         signalsCount: row.signalsCount ?? 1,
         lastSeenAt: row.lastSeenAt ?? createdAt
       } as Lead

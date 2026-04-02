@@ -135,6 +135,14 @@ func (uc *UseCase) SetStatus(ctx context.Context, tenantID, id string, to lead.S
 	return l, nil
 }
 
+func (uc *UseCase) ClaimOwnership(ctx context.Context, tenantID, id, ownerID, ownerName string) (*lead.Lead, error) {
+	return uc.leads.ClaimOwnership(ctx, tenantID, id, ownerID, ownerName)
+}
+
+func (uc *UseCase) ReleaseOwnership(ctx context.Context, tenantID, id, ownerID string) (*lead.Lead, error) {
+	return uc.leads.ReleaseOwnership(ctx, tenantID, id, ownerID)
+}
+
 func (uc *UseCase) SetMerchant(ctx context.Context, tenantID, id, merchantID string) (*lead.Lead, error) {
 	l, err := uc.leads.FindByID(ctx, tenantID, id)
 	if err != nil {

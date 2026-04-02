@@ -40,6 +40,9 @@ type Lead struct {
 	semanticDirection   string
 	semanticCategory    string
 	merchantID          string
+	ownerID             string
+	ownerName           string
+	ownerAssignedAt     *time.Time
 	status              Status
 	qualificationSource QualificationSource
 	score               float64
@@ -92,6 +95,9 @@ func Restore(
 	semanticDirection string,
 	semanticCategory string,
 	merchantID string,
+	ownerID string,
+	ownerName string,
+	ownerAssignedAt *time.Time,
 	status Status,
 	qualificationSource QualificationSource,
 	score float64,
@@ -115,6 +121,9 @@ func Restore(
 		semanticDirection:   semanticDirection,
 		semanticCategory:    semanticCategory,
 		merchantID:          merchantID,
+		ownerID:             ownerID,
+		ownerName:           ownerName,
+		ownerAssignedAt:     ownerAssignedAt,
 		status:              status,
 		qualificationSource: qualificationSource,
 		score:               score,
@@ -140,6 +149,9 @@ func (l *Lead) Products() []string                       { return copySlice(l.pr
 func (l *Lead) SemanticDirection() string                { return l.semanticDirection }
 func (l *Lead) SemanticCategory() string                 { return l.semanticCategory }
 func (l *Lead) MerchantID() string                       { return l.merchantID }
+func (l *Lead) OwnerID() string                          { return l.ownerID }
+func (l *Lead) OwnerName() string                        { return l.ownerName }
+func (l *Lead) OwnerAssignedAt() *time.Time              { return l.ownerAssignedAt }
 func (l *Lead) Status() Status                           { return l.status }
 func (l *Lead) QualificationSource() QualificationSource { return l.qualificationSource }
 func (l *Lead) Score() float64                           { return l.score }
@@ -164,6 +176,28 @@ func (l *Lead) Tag(geo, products []string) {
 
 func (l *Lead) SetMerchant(merchantID string) {
 	l.merchantID = merchantID
+	l.updatedAt = time.Now()
+}
+
+func (l *Lead) AssignOwner(ownerID, ownerName string) error {
+	if ownerID == "" || ownerName == "" {
+		return ErrLeadAlreadyAssigned
+	}
+	if l.ownerID != "" && l.ownerID != ownerID {
+		return ErrLeadAlreadyAssigned
+	}
+	now := time.Now()
+	l.ownerID = ownerID
+	l.ownerName = ownerName
+	l.ownerAssignedAt = &now
+	l.updatedAt = now
+	return nil
+}
+
+func (l *Lead) ClearOwner() {
+	l.ownerID = ""
+	l.ownerName = ""
+	l.ownerAssignedAt = nil
 	l.updatedAt = time.Now()
 }
 

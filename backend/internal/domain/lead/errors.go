@@ -8,4 +8,5 @@ var (
 	ErrInvalidMessageID        = errors.New("invalid message ID")
 	ErrInvalidStatus           = errors.New("invalid status")
 	ErrInvalidStatusTransition = errors.New("invalid status transition")
+	ErrLeadAlreadyAssigned     = errors.New("lead already assigned")
 )

@@ -35,7 +35,6 @@ func NewMongoRepository(db *mongo.Database) lead.Repository {
 	return &mongoRepository{col: col}
 }
 
-
 func (r *mongoRepository) Save(ctx context.Context, l *lead.Lead) error {
 	doc := toDoc(l)
 	doc["created_at"] = l.CreatedAt()
@@ -599,29 +598,32 @@ type broadcastSourceDoc struct {
 }
 
 type leadDoc struct {
-	ID                  string                `bson:"_id"`
-	TenantID            string                `bson:"tenant_id"`
-	MessageID           string                `bson:"message_id"`
-	ChatID              int64                 `bson:"chat_id"`
-	ChatTitle           string                `bson:"chat_title"`
-	SenderID            int64                 `bson:"sender_id"`
-	SenderName          string                `bson:"sender_name"`
-	SenderUsername      string                `bson:"sender_username"`
-	Text                string                `bson:"text"`
-	TextHash            string                `bson:"text_hash,omitempty"`
-	Geo                 []string              `bson:"geo"`
-	Products            []string              `bson:"products"`
-	SemanticDirection   string                `bson:"semantic_direction,omitempty"`
-	SemanticCategory    string                `bson:"semantic_category,omitempty"`
-	MerchantID          string                `bson:"merchant_id"`
-	Status              string                `bson:"status"`
-	QualificationSource string                `bson:"qualification_source,omitempty"`
-	Score               float64               `bson:"score"`
-	UserFeedback        *bool                 `bson:"user_feedback"`
-	CategoryAssignedAt  *time.Time            `bson:"category_assigned_at,omitempty"`
-	BroadcastSources    []broadcastSourceDoc  `bson:"broadcast_sources,omitempty"`
-	CreatedAt           time.Time             `bson:"created_at"`
-	UpdatedAt           time.Time             `bson:"updated_at"`
+	ID                  string               `bson:"_id"`
+	TenantID            string               `bson:"tenant_id"`
+	MessageID           string               `bson:"message_id"`
+	ChatID              int64                `bson:"chat_id"`
+	ChatTitle           string               `bson:"chat_title"`
+	SenderID            int64                `bson:"sender_id"`
+	SenderName          string               `bson:"sender_name"`
+	SenderUsername      string               `bson:"sender_username"`
+	Text                string               `bson:"text"`
+	TextHash            string               `bson:"text_hash,omitempty"`
+	Geo                 []string             `bson:"geo"`
+	Products            []string             `bson:"products"`
+	SemanticDirection   string               `bson:"semantic_direction,omitempty"`
+	SemanticCategory    string               `bson:"semantic_category,omitempty"`
+	MerchantID          string               `bson:"merchant_id"`
+	OwnerID             string               `bson:"owner_id,omitempty"`
+	OwnerName           string               `bson:"owner_name,omitempty"`
+	OwnerAssignedAt     *time.Time           `bson:"owner_assigned_at,omitempty"`
+	Status              string               `bson:"status"`
+	QualificationSource string               `bson:"qualification_source,omitempty"`
+	Score               float64              `bson:"score"`
+	UserFeedback        *bool                `bson:"user_feedback"`
+	CategoryAssignedAt  *time.Time           `bson:"category_assigned_at,omitempty"`
+	BroadcastSources    []broadcastSourceDoc `bson:"broadcast_sources,omitempty"`
+	CreatedAt           time.Time            `bson:"created_at"`
+	UpdatedAt           time.Time            `bson:"updated_at"`
 }
 
 func toDoc(l *lead.Lead) bson.M {
@@ -641,6 +643,9 @@ func toDoc(l *lead.Lead) bson.M {
 		"semantic_direction":   l.SemanticDirection(),
 		"semantic_category":    l.SemanticCategory(),
 		"merchant_id":          l.MerchantID(),
+		"owner_id":             l.OwnerID(),
+		"owner_name":           l.OwnerName(),
+		"owner_assigned_at":    l.OwnerAssignedAt(),
 		"status":               string(l.Status()),
 		"qualification_source": string(l.QualificationSource()),
 		"score":                l.Score(),
@@ -660,6 +665,9 @@ func fromDoc(d leadDoc) *lead.Lead {
 		d.SemanticDirection,
 		d.SemanticCategory,
 		d.MerchantID,
+		d.OwnerID,
+		d.OwnerName,
+		d.OwnerAssignedAt,
 		lead.Status(d.Status),
 		lead.QualificationSource(d.QualificationSource),
 		d.Score,
@@ -710,4 +718,67 @@ func (r *mongoRepository) FindByTextHash(ctx context.Context, tenantID, textHash
 		return nil, err
 	}
 	return fromDoc(doc), nil
+}
+
+func (r *mongoRepository) ClaimOwnership(ctx context.Context, tenantID, id, ownerID, ownerName string) (*lead.Lead, error) {
+	now := time.Now().UTC()
+	result, err := r.col.UpdateOne(ctx, bson.M{
+		"_id":       id,
+		"tenant_id": tenantID,
+		"$or": bson.A{
+			bson.M{"owner_id": bson.M{"$exists": false}},
+			bson.M{"owner_id": ""},
+			bson.M{"owner_id": ownerID},
+		},
+	}, bson.M{
+		"$set": bson.M{
+			"owner_id":          ownerID,
+			"owner_name":        ownerName,
+			"owner_assigned_at": now,
+			"updated_at":        now,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		current, findErr := r.FindByID(ctx, tenantID, id)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if current == nil {
+			return nil, lead.ErrLeadNotFound
+		}
+		return nil, lead.ErrLeadAlreadyAssigned
+	}
+	return r.FindByID(ctx, tenantID, id)
+}
+
+func (r *mongoRepository) ReleaseOwnership(ctx context.Context, tenantID, id, ownerID string) (*lead.Lead, error) {
+	result, err := r.col.UpdateOne(ctx, bson.M{
+		"_id":       id,
+		"tenant_id": tenantID,
+		"owner_id":  ownerID,
+	}, bson.M{
+		"$set": bson.M{
+			"owner_id":          "",
+			"owner_name":        "",
+			"owner_assigned_at": nil,
+			"updated_at":        time.Now().UTC(),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		current, findErr := r.FindByID(ctx, tenantID, id)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if current == nil {
+			return nil, lead.ErrLeadNotFound
+		}
+		return nil, lead.ErrLeadAlreadyAssigned
+	}
+	return r.FindByID(ctx, tenantID, id)
 }

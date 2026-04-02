@@ -5,19 +5,22 @@ import (
 	"strings"
 	"time"
 
+	"MRG/internal/delivery/http/middleware"
 	"MRG/internal/delivery/http/response"
 	"MRG/internal/domain/lead"
+	"MRG/internal/domain/user"
 	lead_usecase "MRG/internal/usecase/lead"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type LeadHandler struct {
-	uc *lead_usecase.UseCase
+	uc       *lead_usecase.UseCase
+	userRepo user.Repository
 }
 
-func NewLeadHandler(uc *lead_usecase.UseCase) *LeadHandler {
-	return &LeadHandler{uc: uc}
+func NewLeadHandler(uc *lead_usecase.UseCase, userRepo user.Repository) *LeadHandler {
+	return &LeadHandler{uc: uc, userRepo: userRepo}
 }
 
 type leadDTO struct {
@@ -35,6 +38,9 @@ type leadDTO struct {
 	MerchantID          string   `json:"merchantId"`
 	CompanyID           string   `json:"companyId"`
 	Company             string   `json:"company"`
+	OwnerID             string   `json:"ownerId"`
+	OwnerName           string   `json:"ownerName"`
+	OwnerAssignedAt     string   `json:"ownerAssignedAt"`
 	Status              string   `json:"status"`
 	QualificationSource string   `json:"qualificationSource"`
 	Priority            string   `json:"priority"`
@@ -252,6 +258,32 @@ func (h *LeadHandler) SetMerchant(c *fiber.Ctx) error {
 	return h.respondLead(c, l, err)
 }
 
+func (h *LeadHandler) Claim(c *fiber.Ctx) error {
+	tenantID := tenantFromCtx(c)
+	actor, err := h.currentUser(c)
+	if err != nil {
+		return err
+	}
+	l, claimErr := h.uc.ClaimOwnership(c.Context(), tenantID, c.Params("id"), actor.ID(), actor.Name())
+	if claimErr == lead.ErrLeadAlreadyAssigned {
+		return response.ErrorResponse(c, fiber.StatusConflict, "LEAD_ALREADY_ASSIGNED", claimErr.Error())
+	}
+	return h.respondLead(c, l, claimErr)
+}
+
+func (h *LeadHandler) Release(c *fiber.Ctx) error {
+	tenantID := tenantFromCtx(c)
+	actor, err := h.currentUser(c)
+	if err != nil {
+		return err
+	}
+	l, releaseErr := h.uc.ReleaseOwnership(c.Context(), tenantID, c.Params("id"), actor.ID())
+	if releaseErr == lead.ErrLeadAlreadyAssigned {
+		return response.ErrorResponse(c, fiber.StatusConflict, "LEAD_ALREADY_ASSIGNED", "lead is assigned to another employee")
+	}
+	return h.respondLead(c, l, releaseErr)
+}
+
 func (h *LeadHandler) Delete(c *fiber.Ctx) error {
 	tenantID := tenantFromCtx(c)
 	if err := h.uc.Delete(c.Context(), tenantID, c.Params("id")); err != nil {
@@ -289,6 +321,18 @@ func (h *LeadHandler) respondLead(c *fiber.Ctx, l *lead.Lead, err error) error {
 	return response.OK(c, toLeadDTO(l))
 }
 
+func (h *LeadHandler) currentUser(c *fiber.Ctx) (*user.User, error) {
+	userID, _ := c.Locals(middleware.UserIDKey).(string)
+	if userID == "" {
+		return nil, response.ErrorResponse(c, fiber.StatusUnauthorized, "UNAUTHORIZED", "user id required")
+	}
+	u, err := h.userRepo.FindByID(c.Context(), userID)
+	if err != nil || u == nil {
+		return nil, response.ErrorResponse(c, fiber.StatusUnauthorized, "UNAUTHORIZED", "user not found")
+	}
+	return u, nil
+}
+
 func toLeadDTO(l *lead.Lead) leadDTO {
 	name := strings.TrimSpace(l.SenderName())
 	if name == "" {
@@ -310,6 +354,10 @@ func toLeadDTO(l *lead.Lead) leadDTO {
 	if l.CategoryAssignedAt() != nil {
 		catAssignedAt = l.CategoryAssignedAt().UTC().Format(time.RFC3339)
 	}
+	var ownerAssignedAt string
+	if l.OwnerAssignedAt() != nil {
+		ownerAssignedAt = l.OwnerAssignedAt().UTC().Format(time.RFC3339)
+	}
 
 	return leadDTO{
 		ID:                  l.ID(),
@@ -326,6 +374,9 @@ func toLeadDTO(l *lead.Lead) leadDTO {
 		MerchantID:          l.MerchantID(),
 		CompanyID:           l.MerchantID(),
 		Company:             l.MerchantID(),
+		OwnerID:             l.OwnerID(),
+		OwnerName:           l.OwnerName(),
+		OwnerAssignedAt:     ownerAssignedAt,
 		Status:              string(l.Status()),
 		QualificationSource: string(l.QualificationSource()),
 		Priority:            string(l.Priority()),

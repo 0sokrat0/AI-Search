@@ -21,6 +21,7 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
 const UCheckbox = resolveComponent('UCheckbox')
 
 const toast = useToast()
+const auth = useAuthStore()
 const table = useTemplateRef<any>('table')
 const loadMoreTrigger = useTemplateRef<HTMLElement | null>('loadMoreTrigger')
 const router = useRouter()
@@ -42,6 +43,7 @@ const columnVisibility = ref<Record<string, boolean>>({
 const rowSelection = ref({})
 const categoryFilter = ref<'all' | 'trader_search' | 'traders' | 'merchants' | 'ps_offers'>('all')
 const selectedChat = ref('all')
+const ownerFilter = ref<'all' | 'mine' | 'unassigned'>('all')
 const bulkLoading = ref(false)
 const bulkStatus = ref<LeadStatus>('qualified')
 const bulkCompanyId = ref<string>('')
@@ -95,8 +97,18 @@ const chatItems = computed(() => {
 })
 
 const filteredLeads = computed(() => {
-  if (selectedChat.value === 'all') return data.value
-  return data.value.filter((lead: Lead) => lead.chatTitle === selectedChat.value)
+  return data.value.filter((lead: Lead) => {
+    if (selectedChat.value !== 'all' && lead.chatTitle !== selectedChat.value) {
+      return false
+    }
+    if (ownerFilter.value === 'mine') {
+      return Boolean(lead.ownerId) && lead.ownerId === auth.currentUser?.id
+    }
+    if (ownerFilter.value === 'unassigned') {
+      return !lead.ownerId
+    }
+    return true
+  })
 })
 
 const groupedScopedLeads = computed<GroupedLead[]>(() => {
@@ -112,6 +124,18 @@ function formatLastSeen(value?: string) {
   const d = new Date(value)
   if (!isValid(d)) return '—'
   return formatDistanceToNow(d, { addSuffix: true })
+}
+
+function isOwnedByCurrentUser(lead: Lead) {
+  return Boolean(lead.ownerId) && lead.ownerId === auth.currentUser?.id
+}
+
+function isOwnedByOther(lead: Lead) {
+  return Boolean(lead.ownerId) && lead.ownerId !== auth.currentUser?.id
+}
+
+function ownerLabel(lead: Lead) {
+  return String(lead.ownerName || '').trim() || 'Свободен'
 }
 
 const statusColor: Record<LeadStatus, 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'info'> = {
@@ -238,6 +262,44 @@ async function updateLeadStatus(id: string, status: LeadStatus) {
   }
 }
 
+async function claimLead(id: string) {
+  try {
+    await $fetch(`/api/leads/${id}/claim`, { method: 'POST' })
+    await queryClient.invalidateQueries({ queryKey: ['leads'] })
+    toast.add({
+      title: 'Лид закреплен',
+      description: 'Ответственный назначен',
+      color: 'success'
+    })
+  } catch (e: any) {
+    await queryClient.invalidateQueries({ queryKey: ['leads'] })
+    toast.add({
+      title: 'Лид уже занят',
+      description: e?.data?.message || e?.message || 'Этот лид уже взят другим сотрудником',
+      color: 'warning'
+    })
+  }
+}
+
+async function releaseLead(id: string) {
+  try {
+    await $fetch(`/api/leads/${id}/claim`, { method: 'DELETE' })
+    await queryClient.invalidateQueries({ queryKey: ['leads'] })
+    toast.add({
+      title: 'Лид освобожден',
+      description: 'Закрепление снято',
+      color: 'success'
+    })
+  } catch (e: any) {
+    await queryClient.invalidateQueries({ queryKey: ['leads'] })
+    toast.add({
+      title: 'Не удалось снять закрепление',
+      description: e?.data?.message || e?.message || 'Ошибка обновления',
+      color: 'error'
+    })
+  }
+}
+
 const columns: TableColumn<GroupedLead>[] = [
   {
     id: 'select',
@@ -277,6 +339,9 @@ const columns: TableColumn<GroupedLead>[] = [
           count > 1
             ? h(UBadge, { color: 'neutral', variant: 'soft', size: 'xs' }, () => `×${count}`)
             : null,
+          row.original.ownerId
+            ? h(UBadge, { color: isOwnedByCurrentUser(row.original) ? 'success' : 'warning', variant: 'soft', size: 'xs', icon: 'i-lucide-user-check' }, () => ownerLabel(row.original))
+            : h(UBadge, { color: 'neutral', variant: 'soft', size: 'xs' }, () => 'Свободен'),
           row.original.isBroadcast
             ? h(UBadge, { color: 'warning', variant: 'subtle', size: 'xs', icon: 'i-lucide-layers', title: 'Мультирассылка' }, () => '')
             : null
@@ -349,6 +414,20 @@ const columns: TableColumn<GroupedLead>[] = [
     }
   },
   {
+    accessorKey: 'ownerName',
+    header: 'Ответственный',
+    cell: ({ row }) => {
+      if (!row.original.ownerId) {
+        return h(UBadge, { color: 'neutral', variant: 'soft' }, () => 'Свободен')
+      }
+      return h(UBadge, {
+        color: isOwnedByCurrentUser(row.original) ? 'success' : 'warning',
+        variant: 'soft',
+        icon: 'i-lucide-user-check'
+      }, () => ownerLabel(row.original))
+    }
+  },
+  {
     accessorKey: 'merchantId',
     header: 'Компания',
     cell: ({ row }) => {
@@ -395,6 +474,20 @@ const columns: TableColumn<GroupedLead>[] = [
       'div',
       { class: 'flex items-center justify-end gap-1' },
       [
+        h(UButton, {
+          icon: isOwnedByCurrentUser(row.original) ? 'i-lucide-user-minus' : 'i-lucide-hand',
+          color: isOwnedByCurrentUser(row.original) ? 'neutral' : 'primary',
+          variant: 'ghost',
+          size: 'sm',
+          square: true,
+          disabled: isOwnedByOther(row.original),
+          title: isOwnedByCurrentUser(row.original)
+            ? 'Снять с себя'
+            : row.original.ownerId
+              ? `Лид уже у ${ownerLabel(row.original)}`
+              : 'Взять в работу',
+          onClick: () => (isOwnedByCurrentUser(row.original) ? releaseLead(row.original.id) : claimLead(row.original.id))
+        }),
         h(UButton, {
           icon: 'i-lucide-eye',
           color: 'neutral',
@@ -557,6 +650,16 @@ function exportCSV() {
             :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200' }"
             placeholder="Фильтр чата"
             class="min-w-52"
+          />
+
+          <USelect
+            v-model="ownerFilter"
+            :items="[
+              { label: 'Все лиды', value: 'all' },
+              { label: 'Мои лиды', value: 'mine' },
+              { label: 'Свободные', value: 'unassigned' }
+            ]"
+            class="min-w-44"
           />
           <UButton
             label="Экспорт"

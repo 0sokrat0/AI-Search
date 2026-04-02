@@ -98,6 +98,9 @@ export interface Lead {
   merchantId: string
   companyId?: string
   company?: string
+  ownerId?: string
+  ownerName?: string
+  ownerAssignedAt?: string
   qualificationSource?: LeadQualificationSource | null
   status: LeadStatus
   priority: LeadPriority

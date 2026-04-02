@@ -10,6 +10,7 @@ const route = useRoute()
 const router = useRouter()
 const leadID = route.params.id as string
 const toast = useToast()
+const auth = useAuthStore()
 
 const { data: brief, status, refresh } = await useFetch<LeadBrief>(`/api/leads/${leadID}/brief`)
 
@@ -37,6 +38,9 @@ const companyName = computed(() => {
   if (mid) return companies.value.find(c => c.id === mid)?.name ?? '—'
   return '—'
 })
+const isOwnedByCurrentUser = computed(() => Boolean(lead.value?.ownerId) && lead.value?.ownerId === auth.currentUser?.id)
+const isOwnedByOther = computed(() => Boolean(lead.value?.ownerId) && lead.value?.ownerId !== auth.currentUser?.id)
+const ownerLabel = computed(() => String(lead.value?.ownerName || '').trim() || 'Свободен')
 
 const categoryLabel: Record<string, string> = {
   leads: 'Лид',
@@ -170,6 +174,18 @@ async function setStatus(newStatus: LeadStatus) {
   await refresh()
 }
 
+async function claimLead() {
+  await $fetch(`/api/leads/${leadID}/claim`, { method: 'POST' })
+  toast.add({ title: 'Лид закреплен', color: 'success' })
+  await refresh()
+}
+
+async function releaseLead() {
+  await $fetch(`/api/leads/${leadID}/claim`, { method: 'DELETE' })
+  toast.add({ title: 'Закрепление снято', color: 'success' })
+  await refresh()
+}
+
 async function updateCategory() {
   if (!selectedCategory.value || selectedCategory.value === lead.value?.semanticCategory) return
   updatingCategory.value = true
@@ -290,6 +306,26 @@ watch(lead, (value) => {
               />
             </UTooltip>
 
+            <UButton
+              v-if="!isOwnedByCurrentUser"
+              icon="i-lucide-hand"
+              label="Взять в работу"
+              color="primary"
+              variant="soft"
+              size="sm"
+              :disabled="isOwnedByOther"
+              @click="claimLead"
+            />
+            <UButton
+              v-else
+              icon="i-lucide-user-minus"
+              label="Снять с себя"
+              color="neutral"
+              variant="soft"
+              size="sm"
+              @click="releaseLead"
+            />
+
             <!-- Copy username -->
             <UTooltip text="Скопировать @ник">
               <UButton
@@ -365,6 +401,13 @@ watch(lead, (value) => {
               >
                 {{ statusLabel[lead.status] }}
               </UBadge>
+              <UBadge
+                :color="isOwnedByCurrentUser ? 'success' : lead.ownerId ? 'warning' : 'neutral'"
+                variant="soft"
+                icon="i-lucide-user-check"
+              >
+                {{ ownerLabel }}
+              </UBadge>
             </div>
 
             <div class="rounded-xl border border-default bg-elevated/30 p-4">
@@ -417,6 +460,14 @@ watch(lead, (value) => {
               </div>
               <div>
                 <p class="text-xs text-muted">
+                  Ответственный
+                </p>
+                <p class="mt-0.5">
+                  {{ ownerLabel }}
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-muted">
                   Дата сигнала
                 </p>
                 <p class="mt-0.5">
@@ -456,6 +507,14 @@ watch(lead, (value) => {
                 </div>
               </div>
             </div>
+
+            <UAlert
+              v-if="isOwnedByOther"
+              color="warning"
+              variant="soft"
+              title="Лид уже в работе"
+              :description="`Сейчас лид закреплен за ${ownerLabel}. Чтобы не пересекаться по контакту, кнопка захвата заблокирована.`"
+            />
 
             <p class="flex items-center gap-1.5 border-t border-default pt-3 text-xs text-muted">
               Один лид здесь = один конкретный сигнал. Контакт используется только как источник и связь между сообщениями.

@@ -57,6 +57,8 @@ func SetupRoutes(
 	leads.Get("/stats", leadHandler.GetStats)
 	leads.Get("/:id/brief", leadHandler.GetLeadBrief)
 	leads.Patch("/:id/status", leadHandler.UpdateStatus)
+	leads.Post("/:id/claim", leadHandler.Claim)
+	leads.Delete("/:id/claim", leadHandler.Release)
 	leads.Delete("/:id", leadHandler.Delete)
 	leads.Post("/:id/approve", leadHandler.Approve)
 	leads.Post("/:id/reject", leadHandler.Reject)

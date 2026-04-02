@@ -100,6 +100,11 @@ const qualificationSourceLabel: Record<string, string> = {
   manual_approved: 'Ручная квалификация'
 }
 
+function displayTelegramUsername(raw?: string | null): string {
+  const value = String(raw || '').trim().replace(/^@+/, '')
+  return value ? `@${value}` : ''
+}
+
 function shortCategoryLabel(category?: string | null): string {
   switch (String(category || '').toLowerCase()) {
     case 'trader_search':
@@ -745,7 +750,7 @@ watch(lead, (value) => {
                     <div class="flex items-center gap-2 min-w-0">
                       <UIcon name="i-lucide-user" class="text-muted shrink-0 size-3.5" />
                       <span class="font-medium truncate">{{ src.senderName || src.senderUsername || '—' }}</span>
-                      <span v-if="src.senderUsername" class="text-xs text-muted truncate">@{{ src.senderUsername }}</span>
+                      <span v-if="src.senderUsername" class="text-xs text-muted truncate">{{ displayTelegramUsername(src.senderUsername) }}</span>
                       <span class="text-xs text-muted truncate">· {{ src.chatTitle }}</span>
                     </div>
                     <p class="text-xs text-muted shrink-0">

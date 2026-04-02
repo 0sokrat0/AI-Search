@@ -344,15 +344,16 @@ func (h *LeadHandler) currentUser(c *fiber.Ctx) (*user.User, error) {
 func toLeadDTO(l *lead.Lead) leadDTO {
 	name := strings.TrimSpace(l.SenderName())
 	if name == "" {
-		name = strings.TrimPrefix(strings.TrimSpace(l.SenderUsername()), "@")
+		name = normalizeUsername(l.SenderUsername())
 	}
 	if name == "" {
 		name = fmt.Sprintf("Lead %d", l.SenderID())
 	}
 
-	contact := strings.TrimSpace(l.SenderUsername())
-	if contact != "" && !strings.HasPrefix(contact, "@") {
-		contact = "@" + contact
+	username := normalizeUsername(l.SenderUsername())
+	contact := ""
+	if username != "" {
+		contact = "@" + username
 	}
 	if contact == "" {
 		contact = name
@@ -398,6 +399,10 @@ func toLeadDTO(l *lead.Lead) leadDTO {
 		CreatedAt:           l.CreatedAt().UTC().Format(time.RFC3339),
 		UpdatedAt:           l.UpdatedAt().UTC().Format(time.RFC3339),
 	}
+}
+
+func normalizeUsername(raw string) string {
+	return strings.TrimPrefix(strings.TrimSpace(raw), "@")
 }
 
 func semanticDirectionToCategory(direction string) string {

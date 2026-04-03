@@ -43,6 +43,10 @@ const isOwnedByOther = computed(() => Boolean(lead.value?.ownerId) && lead.value
 const ownerLabel = computed(() => String(lead.value?.ownerName || '').trim() || 'Свободен')
 const contactOwnerLabel = computed(() => String(lead.value?.contactOwnerName || '').trim() || 'Свободен')
 const companyOwnerLabel = computed(() => String(lead.value?.companyOwnerName || '').trim() || 'Свободен')
+const showDistinctContactOwner = computed(() =>
+  Boolean(lead.value?.contactOwnerId)
+  && lead.value?.contactOwnerId !== lead.value?.ownerId
+)
 
 const categoryLabel: Record<string, string> = {
   leads: 'Лид',
@@ -413,7 +417,15 @@ watch(lead, (value) => {
                 variant="soft"
                 icon="i-lucide-user-check"
               >
-                {{ ownerLabel }}
+                В работе: {{ ownerLabel }}
+              </UBadge>
+              <UBadge
+                v-if="showDistinctContactOwner"
+                :color="lead.contactOwnerId === auth.currentUser?.id ? 'success' : 'warning'"
+                variant="soft"
+                icon="i-lucide-user-round-search"
+              >
+                Контакт: {{ contactOwnerLabel }}
               </UBadge>
             </div>
 
@@ -448,16 +460,6 @@ watch(lead, (value) => {
                     size="xs"
                   />
                 </div>
-                <div class="mt-2">
-                  <UBadge
-                    :color="lead.contactOwnerId ? (lead.contactOwnerId === auth.currentUser?.id ? 'success' : 'warning') : 'neutral'"
-                    variant="soft"
-                    size="sm"
-                    icon="i-lucide-user-check"
-                  >
-                    Telegram-контакт: {{ contactOwnerLabel }}
-                  </UBadge>
-                </div>
               </div>
               <div>
                 <p class="text-xs text-muted">
@@ -473,14 +475,6 @@ watch(lead, (value) => {
                 </p>
                 <p class="mt-0.5 text-lg font-semibold">
                   {{ briefData?.signalsCount ?? 0 }}
-                </p>
-              </div>
-              <div>
-                <p class="text-xs text-muted">
-                  Ответственный
-                </p>
-                <p class="mt-0.5">
-                  {{ ownerLabel }}
                 </p>
               </div>
               <div>

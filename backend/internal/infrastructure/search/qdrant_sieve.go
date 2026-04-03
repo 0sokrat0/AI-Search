@@ -45,6 +45,8 @@ type QdrantSieve struct {
 	categoryThresholdFn func(category string) float32
 	windowSizeFn        func() time.Duration
 	messageCache        map[string][]timedText
+	collectionMu        sync.Mutex
+	leadCollectionReady bool
 	mu                  sync.Mutex
 }
 
@@ -140,7 +142,7 @@ func (s *QdrantSieve) detectLeadMeta(ctx context.Context, text string) (detectio
 		return detectionMeta{}, fmt.Errorf("embed: %w", err)
 	}
 
-	results, err := s.querySimilar(ctx, leadReferenceCollection, vec, queryTopK, true)
+	results, err := s.queryHybridSimilar(ctx, vec, combined, queryTopK, true)
 	if err != nil || len(results) == 0 {
 		return detectionMeta{}, nil
 	}
@@ -404,6 +406,45 @@ func (s *QdrantSieve) querySimilar(ctx context.Context, collection string, vecto
 	return results, nil
 }
 
+func (s *QdrantSieve) queryHybridSimilar(ctx context.Context, vector []float32, text string, limit uint64, withPayload bool) ([]*qdrant.ScoredPoint, error) {
+	if err := s.ensureCollection(ctx, uint64(len(vector))); err != nil {
+		return nil, err
+	}
+
+	indices, values := buildSparseKeywordVector(text)
+	if len(indices) == 0 || len(values) == 0 {
+		return s.querySimilar(ctx, leadReferenceCollection, vector, limit, withPayload)
+	}
+
+	query := &qdrant.QueryPoints{
+		CollectionName: leadReferenceCollection,
+		Prefetch: []*qdrant.PrefetchQuery{
+			{
+				Query: qdrant.NewQuerySparse(indices, values),
+				Using: strPtr(sparseKeywordVectorName),
+				Limit: &limit,
+			},
+			{
+				Query: qdrant.NewQueryDense(vector),
+				Limit: &limit,
+			},
+		},
+		Query: qdrant.NewQueryFusion(qdrant.Fusion_RRF),
+		Limit: &limit,
+	}
+	if withPayload {
+		query.WithPayload = &qdrant.WithPayloadSelector{
+			SelectorOptions: &qdrant.WithPayloadSelector_Enable{Enable: true},
+		}
+	}
+
+	results, err := s.client.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("qdrant hybrid query: %w", err)
+	}
+	return results, nil
+}
+
 func bestCategoryMatch(results []*qdrant.ScoredPoint) (string, string, float32) {
 	bestScores := make(map[string]float32, len(orderedLeadCategories))
 	bestDirections := make(map[string]string, len(orderedLeadCategories))
@@ -510,16 +551,25 @@ func (s *QdrantSieve) embedReferences(ctx context.Context, refs []embeddedRefere
 }
 
 func buildLeadPoint(ref embeddedReference, flags []string) *qdrant.PointStruct {
+	indices, values := buildSparseKeywordVector(ref.text)
+	vectors := map[string]*qdrant.Vector{
+		"": qdrant.NewVectorDense(ref.vector),
+	}
+	if len(indices) > 0 && len(values) > 0 {
+		vectors[sparseKeywordVectorName] = qdrant.NewVectorSparse(indices, values)
+	}
 	return &qdrant.PointStruct{
-		Id: &qdrant.PointId{PointIdOptions: &qdrant.PointId_Uuid{Uuid: referencePointID(ref.text, ref.isLead, ref.direction)}},
-		Vectors: &qdrant.Vectors{VectorsOptions: &qdrant.Vectors_Vector{Vector: &qdrant.Vector{
-			Vector: &qdrant.Vector_Dense{Dense: &qdrant.DenseVector{Data: ref.vector}},
-		}}},
+		Id:      &qdrant.PointId{PointIdOptions: &qdrant.PointId_Uuid{Uuid: referencePointID(ref.text, ref.isLead, ref.direction)}},
+		Vectors: qdrant.NewVectorsMap(vectors),
 		Payload: buildLeadPayload(ref.text, ref.isLead, ref.direction, flags),
 	}
 }
 
 func boolPtr(v bool) *bool {
+	return &v
+}
+
+func strPtr(v string) *string {
 	return &v
 }
 
@@ -529,7 +579,54 @@ func referencePointID(text string, isLead bool, direction string) string {
 }
 
 func (s *QdrantSieve) ensureCollection(ctx context.Context, vectorSize uint64) error {
-	return s.ensureCollectionWithName(ctx, leadReferenceCollection, vectorSize)
+	s.collectionMu.Lock()
+	defer s.collectionMu.Unlock()
+
+	if s.leadCollectionReady {
+		return nil
+	}
+	exists, err := s.client.CollectionExists(ctx, leadReferenceCollection)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if err := s.client.CreateCollection(ctx, &qdrant.CreateCollection{
+			CollectionName: leadReferenceCollection,
+			VectorsConfig: qdrant.NewVectorsConfig(&qdrant.VectorParams{
+				Size:     vectorSize,
+				Distance: qdrant.Distance_Cosine,
+			}),
+			SparseVectorsConfig: qdrant.NewSparseVectorsConfig(map[string]*qdrant.SparseVectorParams{
+				sparseKeywordVectorName: {},
+			}),
+		}); err != nil {
+			return err
+		}
+		s.leadCollectionReady = true
+		return nil
+	}
+
+	info, err := s.client.GetCollectionInfo(ctx, leadReferenceCollection)
+	if err != nil {
+		return err
+	}
+	sparseConfig := info.GetConfig().GetParams().GetSparseVectorsConfig()
+	if sparseConfig == nil || sparseConfig.GetMap()[sparseKeywordVectorName] == nil {
+		if err := s.client.UpdateCollection(ctx, &qdrant.UpdateCollection{
+			CollectionName: leadReferenceCollection,
+			SparseVectorsConfig: qdrant.NewSparseVectorsConfig(map[string]*qdrant.SparseVectorParams{
+				sparseKeywordVectorName: {},
+			}),
+		}); err != nil {
+			return err
+		}
+		if err := s.backfillSparseVectors(ctx, leadReferenceCollection); err != nil {
+			return err
+		}
+	}
+
+	s.leadCollectionReady = true
+	return nil
 }
 
 func (s *QdrantSieve) ensureCollectionWithName(ctx context.Context, name string, vectorSize uint64) error {
@@ -547,6 +644,60 @@ func (s *QdrantSieve) ensureCollectionWithName(ctx context.Context, name string,
 			Distance: qdrant.Distance_Cosine,
 		}),
 	})
+}
+
+func (s *QdrantSieve) backfillSparseVectors(ctx context.Context, collection string) error {
+	offset := (*qdrant.PointId)(nil)
+	limit := uint32(256)
+	wait := true
+
+	for {
+		points, nextOffset, err := s.client.ScrollAndOffset(ctx, &qdrant.ScrollPoints{
+			CollectionName: collection,
+			Limit:          &limit,
+			Offset:         offset,
+			WithPayload: &qdrant.WithPayloadSelector{
+				SelectorOptions: &qdrant.WithPayloadSelector_Enable{Enable: true},
+			},
+		})
+		if err != nil {
+			return err
+		}
+		if len(points) == 0 {
+			return nil
+		}
+
+		updates := make([]*qdrant.PointVectors, 0, len(points))
+		for _, point := range points {
+			text := strings.TrimSpace(point.GetPayload()[payloadTextKey].GetStringValue())
+			if text == "" {
+				continue
+			}
+			indices, values := buildSparseKeywordVector(text)
+			if len(indices) == 0 || len(values) == 0 {
+				continue
+			}
+			updates = append(updates, &qdrant.PointVectors{
+				Id: point.GetId(),
+				Vectors: qdrant.NewVectorsMap(map[string]*qdrant.Vector{
+					sparseKeywordVectorName: qdrant.NewVectorSparse(indices, values),
+				}),
+			})
+		}
+		if len(updates) > 0 {
+			if _, err := s.client.UpdateVectors(ctx, &qdrant.UpdatePointVectors{
+				CollectionName: collection,
+				Wait:           &wait,
+				Points:         updates,
+			}); err != nil {
+				return err
+			}
+		}
+		if nextOffset == nil {
+			return nil
+		}
+		offset = nextOffset
+	}
 }
 
 func buildLeadPayload(text string, isLead bool, direction string, flags []string) map[string]*qdrant.Value {

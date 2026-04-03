@@ -131,6 +131,7 @@ func (h *LeadHandler) GetLeads(c *fiber.Ctx) error {
 	if dir := strings.TrimSpace(c.Query("semantic_direction")); dir != "" {
 		f.SemanticDirection = &dir
 	}
+	f.Query = strings.TrimSpace(c.Query("q"))
 
 	page, err := h.uc.ListPage(c.Context(), tenantID, f)
 	if err != nil {

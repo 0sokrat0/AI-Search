@@ -9,7 +9,8 @@ export default eventHandler(async (event) => {
       category: query.category,
       qualified_only: query.qualified_only ?? true,
       limit: query.limit ?? 50,
-      cursor: query.cursor
+      cursor: query.cursor,
+      q: query.q
     }
   })
 

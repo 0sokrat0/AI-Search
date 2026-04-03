@@ -33,7 +33,7 @@ onMounted(() => {
   hydrated.value = true
 })
 
-const columnFilters = ref([{ id: 'contact', value: '' }])
+const columnFilters = ref([])
 const columnVisibility = ref<Record<string, boolean>>({
   nextAction: false,
   status: false,
@@ -44,6 +44,7 @@ const rowSelection = ref({})
 const categoryFilter = ref<'all' | 'trader_search' | 'traders' | 'merchants' | 'ps_offers'>('all')
 const selectedChat = ref('all')
 const ownerFilter = ref<'all' | 'mine' | 'unassigned'>('all')
+const keywordQuery = ref('')
 const bulkLoading = ref(false)
 const bulkStatus = ref<LeadStatus>('qualified')
 const bulkCompanyId = ref<string>('')
@@ -51,6 +52,7 @@ const bulkCompanyId = ref<string>('')
 const queryClient = useQueryClient()
 const { companies, loading: companiesLoading } = useCompanies()
 const companySelectItems = computed(() => companies.value.map(c => ({ label: c.name, value: c.id })))
+const keywordQueryNormalized = computed(() => keywordQuery.value.trim())
 const {
   data: leadPages,
   isPending,
@@ -58,13 +60,14 @@ const {
   isFetchingNextPage,
   fetchNextPage
 } = useAuthInfiniteQuery<CursorPage<Lead>>(
-  computed(() => ['leads', categoryFilter.value]),
+  computed(() => ['leads', categoryFilter.value, keywordQueryNormalized.value]),
   ({ pageParam }) => $fetch<CursorPage<Lead>>('/api/leads/page', {
     query: {
       category: categoryFilter.value === 'all' ? undefined : categoryFilter.value,
       qualified_only: true,
       limit: 50,
-      cursor: pageParam || undefined
+      cursor: pageParam || undefined,
+      q: keywordQueryNormalized.value || undefined
     }
   }),
   {
@@ -515,18 +518,13 @@ watch([categoryFilter], () => {
   selectedChat.value = 'all'
 })
 
+watch(keywordQueryNormalized, () => {
+  selectedChat.value = 'all'
+})
+
 useIntersectionObserver(loadMoreTrigger, async ([entry]) => {
   if (!entry?.isIntersecting || !hasNextPage.value || isFetchingNextPage.value) return
   await fetchNextPage()
-})
-
-const contact = computed({
-  get: (): string => {
-    return (table.value?.tableApi?.getColumn('contact')?.getFilterValue() as string) || ''
-  },
-  set: (value: string) => {
-    table.value?.tableApi?.getColumn('contact')?.setFilterValue(value || undefined)
-  }
 })
 
 const selectedLeadRows = computed<Array<{ original: Lead }>>(() => table.value?.tableApi?.getFilteredSelectedRowModel?.()?.rows ?? [])
@@ -625,10 +623,10 @@ function exportCSV() {
     <template #body>
       <div class="flex flex-wrap items-center justify-between gap-1.5">
         <UInput
-          v-model="contact"
+          v-model="keywordQuery"
           class="max-w-sm"
           icon="i-lucide-search"
-          placeholder="Фильтр по контакту..."
+          placeholder="Поиск по тексту, чату, контакту, компании..."
         />
 
         <div class="flex flex-wrap items-center gap-1.5">

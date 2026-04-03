@@ -76,6 +76,7 @@ type ListFilter struct {
 	MerchantID        *string
 	SemanticCategory  *string
 	SemanticDirection *string
+	Query             string
 	ChatID            *int64
 	MinScore          *float64
 	FromDate          *time.Time

@@ -5,12 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"MRG/internal/domain/lead"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -571,6 +573,32 @@ func buildFilter(tenantID string, f lead.ListFilter) bson.M {
 			q["user_feedback"] = bson.M{"$ne": nil}
 		} else {
 			q["user_feedback"] = nil
+		}
+	}
+	if searchQuery := strings.TrimSpace(f.Query); searchQuery != "" {
+		clauses := make([]bson.M, 0)
+		for _, token := range strings.Fields(searchQuery) {
+			pattern := regexp.QuoteMeta(strings.TrimSpace(token))
+			if pattern == "" {
+				continue
+			}
+			clauses = append(clauses, bson.M{
+				"$or": bson.A{
+					bson.M{"text": primitive.Regex{Pattern: pattern, Options: "i"}},
+					bson.M{"chat_title": primitive.Regex{Pattern: pattern, Options: "i"}},
+					bson.M{"sender_name": primitive.Regex{Pattern: pattern, Options: "i"}},
+					bson.M{"sender_username": primitive.Regex{Pattern: pattern, Options: "i"}},
+					bson.M{"merchant_id": primitive.Regex{Pattern: pattern, Options: "i"}},
+					bson.M{"owner_name": primitive.Regex{Pattern: pattern, Options: "i"}},
+					bson.M{"semantic_category": primitive.Regex{Pattern: pattern, Options: "i"}},
+					bson.M{"semantic_direction": primitive.Regex{Pattern: pattern, Options: "i"}},
+					bson.M{"geo": primitive.Regex{Pattern: pattern, Options: "i"}},
+					bson.M{"products": primitive.Regex{Pattern: pattern, Options: "i"}},
+				},
+			})
+		}
+		if len(clauses) > 0 {
+			q["$and"] = clauses
 		}
 	}
 	return q
